@@ -11,6 +11,7 @@ using UnityEngine.UI;
 /// - When the remaining block count drops to or below the warning count,
 ///   all remaining blocks are swapped to the red "warning block"
 /// Works with world-space objects (SpriteRenderer) and UI (Image / any Graphic, or a CanvasGroup).
+/// The countdown never starts by itself: call StartTimer() (or RestartTimer()) to begin.
 /// Requires DOTween (free on the Asset Store). No extra DOTween modules are needed.
 /// </summary>
 public class CountdownBar : MonoBehaviour
@@ -30,10 +31,6 @@ public class CountdownBar : MonoBehaviour
     public GameObject warningBlock;
 
     [Header("Game References")]
-    [Tooltip("Object that starts the countdown when pressed. A UI Button, or a world object with a Collider / Collider2D")]
-    public GameObject startButton;
-    [Tooltip("Hide the start button after it is pressed")]
-    public bool hideStartButtonOnPress = true;
     [Tooltip("Object that has the GameManager script on it")]
     public GameObject gameManagerObject;
 
@@ -92,8 +89,6 @@ public class CountdownBar : MonoBehaviour
     public float punchStrength = 0.3f;
 
     [Header("Events")]
-    [Tooltip("Start the countdown automatically when the game starts (ignored when a Start Button is assigned)")]
-    public bool startOnAwake = false;
     [Tooltip("Invoked when time runs out")]
     public UnityEvent onTimeUp;
 
@@ -106,14 +101,24 @@ public class CountdownBar : MonoBehaviour
     private int lastVisibleCount = -1;
     private Vector3 barBasePos;
     private GameManager gameManager;
-    private Button startUIButton;
     private bool stoppedByGameManager;
+    private bool initialized;
 
     public float TimeLeft => timeLeft;
     public bool IsRunning => running;
 
     void Start()
     {
+        // Only builds the bar and shows it full. The countdown waits until StartTimer() is called
+        Initialize();
+    }
+
+    /// <summary>Builds the bar once. Safe to call many times (also called automatically by StartTimer / ResetTimer)</summary>
+    void Initialize()
+    {
+        if (initialized) return;
+        initialized = true;
+
         barBasePos = transform.localPosition;
 
         if (gameManagerObject != null)
@@ -123,17 +128,12 @@ public class CountdownBar : MonoBehaviour
                 Debug.LogError("[CountdownBar] The Game Manager Object has no GameManager script on it!");
         }
 
-        SetupStartButton();
-
         BuildBar();
         ResetTimer();
-        if (startButton == null && startOnAwake) StartTimer();
     }
 
     void Update()
     {
-        CheckWorldStartButtonClick();
-
         if (!running) return;
 
         // Stop counting as soon as the GameManager says the game is finished
@@ -162,88 +162,36 @@ public class CountdownBar : MonoBehaviour
     {
         DOTween.Kill(this);
         foreach (var s in slots) { s.normal.Kill(); s.warning.Kill(); }
-        if (startUIButton != null) startUIButton.onClick.RemoveListener(OnStartButtonPressed);
     }
 
-    // ===== Start button =====
+    // ===== Public control methods (call these from other scripts or a UI Button's OnClick) =====
 
-    void SetupStartButton()
-    {
-        if (startButton == null) return;
-
-        // UI Button: listen to its onClick
-        startUIButton = startButton.GetComponent<Button>();
-        if (startUIButton != null)
-        {
-            startUIButton.onClick.AddListener(OnStartButtonPressed);
-            return;
-        }
-
-        // World object: needs a collider so clicks can be detected in CheckWorldStartButtonClick()
-        if (startButton.GetComponent<Collider>() == null && startButton.GetComponent<Collider2D>() == null)
-            Debug.LogError("[CountdownBar] Start Button needs a UI Button component, or a Collider / Collider2D to be clickable!");
-    }
-
-    /// <summary>Detects mouse / touch clicks on a non-UI start button</summary>
-    void CheckWorldStartButtonClick()
-    {
-        if (startButton == null || startUIButton != null || !startButton.activeInHierarchy) return;
-
-        Vector3 pointer;
-        bool pressed;
-#if ENABLE_INPUT_SYSTEM
-        var mouse = UnityEngine.InputSystem.Mouse.current;
-        var touch = UnityEngine.InputSystem.Touchscreen.current;
-        if (mouse != null && mouse.leftButton.wasPressedThisFrame) { pressed = true; pointer = mouse.position.ReadValue(); }
-        else if (touch != null && touch.primaryTouch.press.wasPressedThisFrame) { pressed = true; pointer = touch.primaryTouch.position.ReadValue(); }
-        else { pressed = false; pointer = Vector3.zero; }
-#else
-        pressed = Input.GetMouseButtonDown(0);
-        pointer = Input.mousePosition;
-#endif
-        if (!pressed) return;
-
-        Camera cam = Camera.main;
-        if (cam == null) return;
-
-        // 2D collider
-        Collider2D hit2D = Physics2D.OverlapPoint(cam.ScreenToWorldPoint(pointer));
-        if (hit2D != null && hit2D.gameObject == startButton) { OnStartButtonPressed(); return; }
-
-        // 3D collider
-        if (Physics.Raycast(cam.ScreenPointToRay(pointer), out RaycastHit hit3D) && hit3D.collider.gameObject == startButton)
-            OnStartButtonPressed();
-    }
-
-    void OnStartButtonPressed()
-    {
-        if (running) return;
-        StartTimer();
-        if (running && hideStartButtonOnPress) startButton.SetActive(false);
-    }
-
-    // ===== Public control methods =====
-
-    /// <summary>Start (or resume) the countdown. Does nothing if the game is already finished</summary>
+    /// <summary>Start (or resume) the countdown. Does nothing if time is up or GameManager.IsFinished is true</summary>
     public void StartTimer()
     {
+        Initialize();
         if (timeLeft <= 0f) return;
         if (gameManager != null && gameManager.IsFinished) return;
         stoppedByGameManager = false;
         running = true;
     }
 
+    /// <summary>Pause the countdown. Call StartTimer() to continue</summary>
     public void PauseTimer() => running = false;
 
-    /// <summary>True if the countdown was paused because GameManager.IsFinished became true</summary>
-    public bool StoppedByGameManager => stoppedByGameManager;
-
-    /// <summary>Reset the time, restore all blocks and play the intro effect</summary>
+    /// <summary>Stop the countdown, refill the bar to full time and play the intro effect. Does not start it</summary>
     public void ResetTimer()
     {
+        Initialize();
+
+        running = false;
+        stoppedByGameManager = false;
         timeLeft = totalTime;
         lastVisibleCount = -1;
         inWarning = false;
+
+        DOTween.Kill(this);
+        transform.localPosition = barBasePos;
 
         foreach (var s in slots)
         {
@@ -256,6 +204,16 @@ public class CountdownBar : MonoBehaviour
         RefreshBlocks(false);
         PlayIntro();
     }
+
+    /// <summary>Reset the bar to full time and start counting right away</summary>
+    public void RestartTimer()
+    {
+        ResetTimer();
+        StartTimer();
+    }
+
+    /// <summary>True if the countdown was paused because GameManager.IsFinished became true</summary>
+    public bool StoppedByGameManager => stoppedByGameManager;
 
     /// <summary>Add or subtract time (e.g. time bonus pickups, time penalties)</summary>
     public void AddTime(float seconds)

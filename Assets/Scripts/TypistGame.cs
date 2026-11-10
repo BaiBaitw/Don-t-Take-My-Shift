@@ -49,14 +49,17 @@ public class TypistGame : MonoBehaviour
     public Image errorBackground;
 
     [Header("【UI & External Script References】")]
-    [Tooltip("Button to start the game.")]
-    public Button startButton;
     [Tooltip("Button to complete the current line/stage.")]
     public Button enterButton;
     [Tooltip("How long EnterButton shows its Pressed Sprite when the keyboard Enter key is pressed (in seconds).")]
     public float enterButtonPressedDuration = 0.15f;
     [Tooltip("GameManager script reference (handles totalLevels and CompleteCurrentStage).")]
     public GameManager gameManager;
+    [Tooltip("Player GameObject. Its PlayerScript component is fetched at runtime and PlayWrongAnimation() is called on every typo.")]
+    public GameObject player;
+
+    // PlayerScript fetched from the Player GameObject
+    private PlayerScript playerScript;
 
     // Internal state variables
     private string currentTargetText = "";
@@ -84,13 +87,20 @@ public class TypistGame : MonoBehaviour
 
         if (normalCursor != null) normalCursorHome = normalCursor.transform.parent;
         if (errorCursor != null) errorCursorHome = errorCursor.transform.parent;
+
+        // Get the PlayerScript component from the Player GameObject
+        if (player != null)
+        {
+            playerScript = player.GetComponent<PlayerScript>();
+            if (playerScript == null)
+            {
+                Debug.LogWarning("TypistGame: PlayerScript was not found on the Player GameObject.", player);
+            }
+        }
     }
 
     private void Start()
     {
-        if (startButton != null)
-            startButton.onClick.AddListener(StartGame);
-
         if (enterButton != null)
             enterButton.onClick.AddListener(OnEnterPressed);
 
@@ -147,8 +157,27 @@ public class TypistGame : MonoBehaviour
         }
     }
 
+    // Upper limit for line length (matches the [Range(5, 15)] sliders and the phrase bank)
+    private const int MaxAllowedLength = 15;
+    // How many characters each IncreaseDifficulty() call adds
+    private const int DifficultyStep = 2;
+
     /// <summary>
-    /// Starts the game loop. Called by StartButton.
+    /// Increases difficulty: adds 2 characters to both minLength and maxLength.
+    /// Each value stops at 15 once it reaches the limit. Can be called from other scripts.
+    /// Takes effect from the next generated line.
+    /// </summary>
+    public void IncreaseDifficulty()
+    {
+        minLength = Mathf.Min(minLength + DifficultyStep, MaxAllowedLength);
+        maxLength = Mathf.Min(maxLength + DifficultyStep, MaxAllowedLength);
+
+        // Safety: keep minLength from exceeding maxLength
+        if (minLength > maxLength) minLength = maxLength;
+    }
+
+    /// <summary>
+    /// Starts the game loop. Public so it can be called from other scripts or a UI Button's OnClick.
     /// </summary>
     public void StartGame()
     {
@@ -261,6 +290,12 @@ public class TypistGame : MonoBehaviour
         SetBackgroundState(isError: true);
         ShowErrorCursor(currentIndex);
         errorFlashCoroutine = StartCoroutine(ErrorFlashRoutine());
+
+        // Play the player's "wrong" animation
+        if (playerScript != null)
+        {
+            playerScript.PlayWrongAnimation();
+        }
     }
 
     /// <summary>
