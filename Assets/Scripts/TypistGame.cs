@@ -63,6 +63,7 @@ public class TypistGame : MonoBehaviour
 
     // Internal state variables
     private string currentTargetText = "";
+    private string previousTargetText = "";   // Last line's text, used to avoid repeating it
     private int currentIndex = 0;
     private bool isGameActive = false;
     private bool isLineCompleted = false;
@@ -70,13 +71,15 @@ public class TypistGame : MonoBehaviour
     private Coroutine blinkCoroutine;
     private Coroutine errorFlashCoroutine;
     private Coroutine enterButtonVisualCoroutine;
-    private Sprite enterButtonOriginalSprite;
+    private Sprite enterButtonNormalSprite;      // EnterButton's original sprite, cached at Start
+    private bool isEnterButtonHighlighted = false; // Line completed: waiting for Enter
+    private bool isEnterButtonPressing = false;    // Keyboard Enter pressed visual is playing
 
     // Original parents of the cursors, so they can be moved out before letters are destroyed
     private Transform normalCursorHome;
     private Transform errorCursorHome;
 
-    // AI phrase bank dictionary (Length as Key, Array of 10 phrases as Value)
+    // Phrase bank dictionary: letter-writing phrases, occasionally AI-related (Length as Key, Array of 10 phrases as Value)
     private Dictionary<int, string[]> aiPhraseBank;
 
     private readonly string charPool = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNOPQRSTUVWXYZ ";
@@ -87,6 +90,13 @@ public class TypistGame : MonoBehaviour
 
         if (normalCursor != null) normalCursorHome = normalCursor.transform.parent;
         if (errorCursor != null) errorCursorHome = errorCursor.transform.parent;
+
+        // Remember EnterButton's normal sprite (done in Awake so it is ready before any StartGame call)
+        if (enterButton != null)
+        {
+            Image enterImg = enterButton.targetGraphic as Image;
+            if (enterImg != null) enterButtonNormalSprite = enterImg.sprite;
+        }
 
         // Get the PlayerScript component from the Player GameObject
         if (player != null)
@@ -102,7 +112,9 @@ public class TypistGame : MonoBehaviour
     private void Start()
     {
         if (enterButton != null)
+        {
             enterButton.onClick.AddListener(OnEnterPressed);
+        }
 
         SetBackgroundState(isError: false);
         HideCursors();
@@ -199,19 +211,18 @@ public class TypistGame : MonoBehaviour
         isLineCompleted = false;
         hasError = false;
         SetBackgroundState(isError: false);
+        SetEnterButtonHighlighted(false);   // Back to the normal EnterButton look for the new stage
 
-        int targetLength = Random.Range(minLength, maxLength + 1);
-
-        // Determine whether to use phrase bank or random string based on probability
-        if (Random.value < phraseProbability && aiPhraseBank.ContainsKey(targetLength))
+        // Pick a new text that is different from the previous line
+        const int maxAttempts = 20;
+        string candidate = "";
+        for (int attempt = 0; attempt < maxAttempts; attempt++)
         {
-            string[] bank = aiPhraseBank[targetLength];
-            currentTargetText = bank[Random.Range(0, bank.Length)];
+            candidate = PickTargetText();
+            if (candidate != previousTargetText) break;
         }
-        else
-        {
-            currentTargetText = GenerateRandomString(targetLength);
-        }
+        currentTargetText = candidate;
+        previousTargetText = currentTargetText;
 
         // Color definition for uncompleted letters (50% black by default)
         Color uncompletedColor = new Color(0f, 0f, 0f, uncompletedAlpha);
@@ -241,6 +252,22 @@ public class TypistGame : MonoBehaviour
     }
 
     /// <summary>
+    /// Picks one line of text: from the phrase bank (by phraseProbability) or a random string.
+    /// </summary>
+    private string PickTargetText()
+    {
+        int targetLength = Random.Range(minLength, maxLength + 1);
+
+        if (Random.value < phraseProbability && aiPhraseBank.ContainsKey(targetLength))
+        {
+            string[] bank = aiPhraseBank[targetLength];
+            return bank[Random.Range(0, bank.Length)];
+        }
+
+        return GenerateRandomString(targetLength);
+    }
+
+    /// <summary>
     /// Validates player input character.
     /// </summary>
     private void CheckInputChar(char inputChar)
@@ -265,9 +292,10 @@ public class TypistGame : MonoBehaviour
 
             if (currentIndex >= currentTargetText.Length)
             {
-                // Current line completed
+                // Current line completed: highlight EnterButton so the player knows to press Enter
                 isLineCompleted = true;
                 HideCursors();
+                SetEnterButtonHighlighted(true);
             }
             else
             {
@@ -331,58 +359,61 @@ public class TypistGame : MonoBehaviour
     {
         if (enterButton == null || !enterButton.interactable) return;
 
-        // If a previous press is still showing, restore it first
-        if (enterButtonVisualCoroutine != null)
-        {
-            StopCoroutine(enterButtonVisualCoroutine);
-            RestoreEnterButtonVisual();
-        }
-
+        if (enterButtonVisualCoroutine != null) StopCoroutine(enterButtonVisualCoroutine);
         enterButtonVisualCoroutine = StartCoroutine(EnterButtonPressedRoutine());
     }
 
     private IEnumerator EnterButtonPressedRoutine()
     {
-        Image img = enterButton.targetGraphic as Image;
-
-        if (enterButton.transition == Selectable.Transition.SpriteSwap)
-        {
-            Sprite pressed = enterButton.spriteState.pressedSprite;
-            if (img != null && pressed != null)
-            {
-                enterButtonOriginalSprite = img.sprite;
-                img.sprite = pressed;
-            }
-        }
-        else if (enterButton.transition == Selectable.Transition.ColorTint && enterButton.targetGraphic != null)
-        {
-            ColorBlock cb = enterButton.colors;
-            enterButton.targetGraphic.CrossFadeColor(cb.pressedColor * cb.colorMultiplier, 0f, true, true);
-        }
+        isEnterButtonPressing = true;
+        ApplyEnterButtonVisual();
 
         yield return new WaitForSeconds(enterButtonPressedDuration);
 
-        RestoreEnterButtonVisual();
+        isEnterButtonPressing = false;
+        ApplyEnterButtonVisual();   // Returns to Highlighted or Normal, whichever is current
         enterButtonVisualCoroutine = null;
     }
 
-    private void RestoreEnterButtonVisual()
+    /// <summary>
+    /// Turns EnterButton's Highlighted look on (line completed) or off (new stage / game end).
+    /// </summary>
+    private void SetEnterButtonHighlighted(bool highlighted)
     {
-        if (enterButton == null) return;
+        isEnterButtonHighlighted = highlighted;
+        ApplyEnterButtonVisual();
+    }
+
+    /// <summary>
+    /// Applies EnterButton's look by priority: Pressed > Highlighted > Normal.
+    /// Uses the sprites / colors set on the Button component.
+    /// </summary>
+    private void ApplyEnterButtonVisual()
+    {
+        if (enterButton == null || enterButton.targetGraphic == null) return;
 
         if (enterButton.transition == Selectable.Transition.SpriteSwap)
         {
             Image img = enterButton.targetGraphic as Image;
-            if (img != null && enterButtonOriginalSprite != null)
-            {
-                img.sprite = enterButtonOriginalSprite;
-            }
-            enterButtonOriginalSprite = null;
+            if (img == null) return;
+
+            SpriteState ss = enterButton.spriteState;
+            if (enterButtonNormalSprite == null) enterButtonNormalSprite = img.sprite;
+
+            Sprite target = enterButtonNormalSprite;
+            if (isEnterButtonPressing && ss.pressedSprite != null) target = ss.pressedSprite;
+            else if (isEnterButtonHighlighted && ss.highlightedSprite != null) target = ss.highlightedSprite;
+
+            img.sprite = target;
         }
-        else if (enterButton.transition == Selectable.Transition.ColorTint && enterButton.targetGraphic != null)
+        else if (enterButton.transition == Selectable.Transition.ColorTint)
         {
             ColorBlock cb = enterButton.colors;
-            enterButton.targetGraphic.CrossFadeColor(cb.normalColor * cb.colorMultiplier, cb.fadeDuration, true, true);
+            Color target = cb.normalColor;
+            if (isEnterButtonPressing) target = cb.pressedColor;
+            else if (isEnterButtonHighlighted) target = cb.highlightedColor;
+
+            enterButton.targetGraphic.CrossFadeColor(target * cb.colorMultiplier, isEnterButtonPressing ? 0f : cb.fadeDuration, true, true);
         }
     }
 
@@ -397,6 +428,7 @@ public class TypistGame : MonoBehaviour
         hasError = false;
         StopErrorFlash();
         HideCursors();
+        SetEnterButtonHighlighted(false);
 
         // Switch permanently to the red error background and red error cursor
         SetBackgroundState(isError: true);
@@ -433,6 +465,7 @@ public class TypistGame : MonoBehaviour
             isGameActive = false;
             isLineCompleted = false;
             ClearContainer();   // Also hides cursors and removes the last line's letters
+            SetEnterButtonHighlighted(false);
             currentTargetText = "";
             currentIndex = 0;
             return;
@@ -571,7 +604,8 @@ public class TypistGame : MonoBehaviour
     }
 
     /// <summary>
-    /// Initializes AI phrase bank (Lengths 5 to 15, 10 entries each, exact length matching).
+    /// Initializes the phrase bank: letter-writing phrases with occasional AI-related ones
+    /// (Lengths 5 to 15, 10 entries each, exact length matching, letters and spaces only).
     /// </summary>
     private void InitializeAIPhraseBank()
     {
@@ -579,58 +613,58 @@ public class TypistGame : MonoBehaviour
         {
             // 長度 5
             { 5, new string[] {
-                "Agent", "Model", "Robot", "Token", "Train",
-                "Logic", "Smart", "Learn", "Coder", "Chips"
+                "Hello", "Sorry", "Yours", "Hi Jo", "Hi Ed",
+                "Hi Al", "Hi Ma", "Later", "Peace", "Hi AI"
             }},
             // 長度 6
             { 6, new string[] {
-                "Gen AI", "AI job", "Prompt", "Neural", "Future",
-                "AI era", "No job", "Robots", "AI law", "AI art"
+                "Thanks", "Cheers", "Warmly", "Fondly", "Hi Amy",
+                "Hi Tom", "Hi Mom", "Hi bro", "Hi sis", "Hey AI"
             }},
             // 長度 7
             { 7, new string[] {
-                "AI boom", "AI tool", "AI work", "Chatbot", "Reskill",
-                "Upskill", "AI news", "AI chip", "Use LLM", "AI jobs"
+                "Regards", "See you", "Bye now", "Hi team", "Hi dear",
+                "Love ya", "Miss ya", "Dear Al", "Love Ma", "Dear AI"
             }},
             // 長度 8
             { 8, new string[] {
-                "AI agent", "Job loss", "AI boost", "Automate", "New jobs",
-                "GPU boom", "AI coder", "AI tutor", "Robotaxi", "Big data"
+                "Dear Sir", "Dear Mom", "Dear Dad", "Dear Ann", "Love you",
+                "Miss you", "Big news", "Hi folks", "Your son", "AI reply"
             }},
             // 長度 9
             { 9, new string[] {
-                "AI agents", "AI trends", "AI coding", "AI learns", "AI writes",
-                "Robot era", "Job shift", "Future AI", "AI robots", "AI drives"
+                "Thank you", "Sincerely", "Take care", "Talk soon", "With love",
+                "Dear team", "Good luck", "Good news", "Stay safe", "AI drafts"
             }},
             // 長度 10
             { 10, new string[] {
-                "AI at work", "AI chatbot", "AI copilot", "AI economy", "AI is here",
-                "AI layoffs", "AI startup", "Fewer jobs", "Gen AI era", "Smart bots"
+                "Dear Madam", "Dear Sarah", "Hello team", "I miss you", "I am sorry",
+                "Great news", "Good night", "Any update", "Dear diary", "Sent by AI"
             }},
             // 長度 11
             { 11, new string[] {
-                "AI replaces", "Agents rise", "Big tech AI", "Data center", "Open models",
-                "Robots work", "Smart robot", "Upskill now", "AI is smart", "AI helps us"
+                "Best wishes", "Warm wishes", "Yours truly", "Many thanks", "Dear friend",
+                "Hi everyone", "How are you", "Let me know", "All my love", "Bye for now"
             }},
             // 長度 12
             { 12, new string[] {
-                "AI took jobs", "AI took over", "AI vs humans", "Jobs at risk", "Learn AI now",
-                "Prompt skill", "Robot worker", "Work with AI", "Bots replace", "Humans vs AI"
+                "Best regards", "Kind regards", "Warm regards", "Good morning", "See you soon",
+                "Thanks again", "Please reply", "Dear manager", "Running late", "Dear Grandma"
             }},
             // 長度 13
             { 13, new string[] {
-                "AI agents run", "AI chips boom", "AI cuts costs", "AI pair coder", "AI saves time",
-                "Deep learning", "Human plus AI", "Reskill today", "Upskill daily", "Use AI wisely"
+                "Keep in touch", "Get well soon", "Forever yours", "Save the date", "Call me later",
+                "Dear customer", "Please advise", "Out of office", "AI wrote this", "Drafted by AI"
             }},
             // 長度 14
             { 14, new string[] {
-                "AI does my job", "AI drives cars", "AI is the boss", "AI writes code", "Bots do it all",
-                "Coding with AI", "Future of work", "No more coders", "Reskill for AI", "Robots replace"
+                "Happy birthday", "Dear colleague", "Please confirm", "Quick question", "Welcome aboard",
+                "See you Monday", "Lunch tomorrow", "With gratitude", "AI fixed typos", "Dear AI helper"
             }},
             // 長度 15
             { 15, new string[] {
-                "AI takes my job", "AI needs humans", "AI edits videos", "AI in every app", "AI safety first",
-                "Agents do tasks", "Learn to use AI", "No code with AI", "Smart factories", "AI reads x rays"
+                "Yours sincerely", "Write back soon", "Looking forward", "Have a nice day", "Merry Christmas",
+                "You are invited", "Until next time", "Got your letter", "Written with AI", "My AI assistant"
             }}
         };
     }
