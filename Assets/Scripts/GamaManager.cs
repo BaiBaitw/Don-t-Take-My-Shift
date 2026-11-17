@@ -10,28 +10,15 @@ public class GameManager : MonoBehaviour
     [Tooltip("TextMeshProUGUI component displaying progress count")]
     [SerializeField] private TextMeshProUGUI levelText;
 
-    [Tooltip("Parent container transform for spawned icons")]
-    [SerializeField] private Transform iconContainer;
-
     [Tooltip("Button to start the game initially")]
     [SerializeField] private Button startButton;
 
     [Tooltip("Button to advance to the next level/stage when finished")]
     [SerializeField] private Button nextButton;
 
-    [Header("Icon Prefab Settings")]
-    [Tooltip("Prefab for standard state icon (must include Image component)")]
-    [SerializeField] private GameObject normalIconPrefab;
-
-    [Tooltip("Sprite representing completed state")]
-    [SerializeField] private Sprite completedIconSprite;
-
     [Header("Count & Stage Parameters")]
     [Tooltip("Total count required to complete (formerly totalLevels)")]
     [SerializeField] private int totalCounts = 3;
-
-    [Tooltip("Horizontal spacing between icons (used if container lacks Layout Group)")]
-    [SerializeField] private float iconSpacing = 50f;
 
     [Header("Background Scene Settings")]
     [Tooltip("GameObject with a SpriteRenderer component for the background")]
@@ -70,7 +57,6 @@ public class GameManager : MonoBehaviour
     private bool isTransitioning = false;
     private int completedStages = 0;
     private int currentSceneIndex = 0;
-    private List<Image> spawnedIcons = new List<Image>();
     private SpriteRenderer bgSpriteRenderer;
 
     /// <summary>
@@ -151,7 +137,7 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Initializes level text, UI icons, and hides the Next button.
+    /// Initializes level text and hides the Next button.
     /// </summary>
     public void InitializeLevelUI()
     {
@@ -165,7 +151,6 @@ public class GameManager : MonoBehaviour
         }
 
         UpdateTextUI();
-        SpawnIcons();
     }
 
     /// <summary>
@@ -180,39 +165,6 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Spawns icons based on totalCounts.
-    /// </summary>
-    private void SpawnIcons()
-    {
-        if (iconContainer == null) return;
-
-        foreach (Transform child in iconContainer)
-        {
-            Destroy(child.gameObject);
-        }
-        spawnedIcons.Clear();
-
-        if (normalIconPrefab == null) return;
-
-        for (int i = 0; i < totalCounts; i++)
-        {
-            GameObject iconObj = Instantiate(normalIconPrefab, iconContainer);
-
-            RectTransform rectTransform = iconObj.GetComponent<RectTransform>();
-            if (rectTransform != null && iconContainer.GetComponent<LayoutGroup>() == null)
-            {
-                rectTransform.anchoredPosition = new Vector2(i * iconSpacing, 0);
-            }
-
-            Image img = iconObj.GetComponent<Image>();
-            if (img != null)
-            {
-                spawnedIcons.Add(img);
-            }
-        }
-    }
-
-    /// <summary>
     /// Completes the current stage. When all are completed, displays Next Button, pauses timer, and logs message.
     /// </summary>
     public void CompleteCurrentStage()
@@ -221,11 +173,6 @@ public class GameManager : MonoBehaviour
 
         if (completedStages < totalCounts)
         {
-            if (completedStages < spawnedIcons.Count && completedIconSprite != null)
-            {
-                spawnedIcons[completedStages].sprite = completedIconSprite;
-            }
-
             completedStages++;
             UpdateTextUI();
 

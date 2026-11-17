@@ -5,30 +5,31 @@ using UnityEngine.Events;
 using UnityEngine.UI;
 
 /// <summary>
-/// Block-based countdown bar with selectable DOTween effects.
-/// - Duplicates the "normal block" to the right to form a time bar
-/// - As time counts down, blocks disappear one by one starting from the rightmost
-/// - When the remaining block count drops to or below the warning count,
-///   all remaining blocks are swapped to the red "warning block"
-/// Works with world-space objects (SpriteRenderer) and UI (Image / any Graphic, or a CanvasGroup).
+/// Countdown bar made of three stacked UI Images (Normal / Yellow / Red).
+/// - The bar shrinks from the right as time counts down
+/// - When the time left drops to Yellow Time, the yellow bar is shown
+/// - When the time left drops to Red Time, the red bar is shown
+/// Only one of the three bars is visible at a time; all three always share the same length.
 /// The countdown never starts by itself: call StartTimer() (or RestartTimer()) to begin.
 /// Requires DOTween (free on the Asset Store). No extra DOTween modules are needed.
 /// </summary>
 public class CountdownBar : MonoBehaviour
 {
-    // ===== Effect options (shown as dropdowns in the Inspector) =====
+    // ===== Options (shown as dropdowns in the Inspector) =====
 
-    public enum IntroEffect { None, ScaleIn, FadeIn, DropIn }
-    public enum DisappearEffect { None, Shrink, Fade, ShrinkAndFade, FallDown, FlyUp, PopAndVanish, SpinOut, ShakeThenVanish }
-    public enum BlockLostReaction { None, ShakeBar, PunchLastBlock }
-    public enum WarningSwitchEffect { None, Punch, PopIn, FlashIn }
-    public enum WarningLoopEffect { None, Pulse, Blink, Shake, Bounce }
+    public enum BarState { Normal, Yellow, Red }
+    public enum ShrinkMode { Fill, Width }
+    public enum IntroEffect { None, FillUp, FadeIn, ScaleIn }
+    public enum SwitchEffect { None, Punch, PopIn, Flash, Shake }
+    public enum LoopEffect { None, Pulse, Blink, Shake, Bounce }
 
-    [Header("Block Prefabs / Objects")]
-    [Tooltip("Block shown in the normal state")]
-    public GameObject normalBlock;
-    [Tooltip("Red block shown when time is almost up")]
-    public GameObject warningBlock;
+    [Header("Bars (UI Images, placed on top of each other)")]
+    [Tooltip("Bar shown while there is plenty of time left")]
+    public Image normalBar;
+    [Tooltip("Bar shown when time left <= Yellow Time")]
+    public Image yellowBar;
+    [Tooltip("Bar shown when time left <= Red Time")]
+    public Image redBar;
 
     [Header("Game References")]
     [Tooltip("Object that has the GameManager script on it")]
@@ -37,89 +38,94 @@ public class CountdownBar : MonoBehaviour
     [Header("Time Settings")]
     [Tooltip("Total countdown time (seconds)")]
     public float totalTime = 30f;
-    [Tooltip("Total number of blocks in the bar")]
-    public int blockCount = 10;
-    [Tooltip("Switch to red blocks when this many blocks (or fewer) remain")]
-    public int warningBlockCount = 3;
+    [Tooltip("Show the yellow bar when this many seconds (or fewer) are left")]
+    public float yellowTime = 10f;
+    [Tooltip("Show the red bar when this many seconds (or fewer) are left")]
+    public float redTime = 5f;
     [Tooltip("Ignore Time.timeScale (keeps counting and animating while the game is paused with timeScale = 0)")]
     public bool useUnscaledTime = false;
 
-    [Header("Layout Settings")]
-    [Tooltip("Distance between blocks (center to center). World units for scene objects, pixels for UI")]
-    public float spacing = 1.1f;
-    [Tooltip("If checked, spacing is calculated from the block size automatically (spacing becomes the extra gap)")]
-    public bool autoSpacing = false;
+    [Header("Bar Settings")]
+    [Tooltip("Fill: crops the image from the right (image must have a Source Image). " +
+             "Width: shrinks the RectTransform width (good for 9-sliced images)")]
+    public ShrinkMode shrinkMode = ShrinkMode.Fill;
+    [Tooltip("How fast the bar slides to its new length after AddTime (full bar lengths per second). 0 = jump instantly")]
+    public float catchUpSpeed = 1.5f;
 
     [Header("Effect: Intro (on start / reset)")]
-    public IntroEffect introEffect = IntroEffect.ScaleIn;
-    public float introDuration = 0.35f;
-    [Tooltip("Delay between each block's intro (creates a wave)")]
-    public float introStagger = 0.05f;
+    public IntroEffect introEffect = IntroEffect.FillUp;
+    public float introDuration = 0.6f;
 
-    [Header("Effect: Block Disappear")]
-    public DisappearEffect disappearEffect = DisappearEffect.PopAndVanish;
-    public float disappearDuration = 0.35f;
-    public Ease disappearEase = Ease.InBack;
-
-    [Header("Effect: Reaction When a Block Is Lost")]
-    public BlockLostReaction blockLostReaction = BlockLostReaction.PunchLastBlock;
-    public float reactionDuration = 0.25f;
-
-    [Header("Effect: Switching to Red")]
-    public WarningSwitchEffect warningSwitchEffect = WarningSwitchEffect.Punch;
+    [Header("Effect: Switching Colour")]
+    [Tooltip("Played once when the bar turns yellow")]
+    public SwitchEffect yellowSwitchEffect = SwitchEffect.Punch;
+    [Tooltip("Played once when the bar turns red")]
+    public SwitchEffect redSwitchEffect = SwitchEffect.Flash;
     public float switchDuration = 0.4f;
-    [Tooltip("Delay between each block's switch (creates a wave). 0 = all at once")]
-    public float switchStagger = 0.06f;
 
-    [Header("Effect: Looping While Red")]
-    public WarningLoopEffect warningLoopEffect = WarningLoopEffect.Pulse;
+    [Header("Effect: Looping")]
+    [Tooltip("Keeps playing while the bar is yellow")]
+    public LoopEffect yellowLoopEffect = LoopEffect.None;
+    [Tooltip("Keeps playing while the bar is red")]
+    public LoopEffect redLoopEffect = LoopEffect.Pulse;
     [Tooltip("Time for one full loop cycle")]
     public float loopDuration = 0.6f;
-    [Tooltip("Pulse: scale multiplier at the peak")]
-    public float pulseScale = 1.15f;
+    [Tooltip("Pulse: height multiplier at the peak")]
+    public float pulseScale = 1.2f;
     [Tooltip("Blink: lowest alpha")]
     [Range(0f, 1f)] public float blinkMinAlpha = 0.3f;
 
-    [Header("Effect Strength")]
-    [Tooltip("Distance used by FallDown / FlyUp / DropIn / Bounce. World units for scene objects, pixels for UI")]
-    public float moveDistance = 1f;
-    [Tooltip("Strength used by shake effects. World units for scene objects, pixels for UI")]
-    public float shakeStrength = 0.1f;
-    [Tooltip("Strength used by punch effects (scale amount)")]
-    public float punchStrength = 0.3f;
+    [Header("Effect Strength (pixels)")]
+    [Tooltip("Distance used by Bounce")]
+    public float moveDistance = 8f;
+    [Tooltip("Strength used by Shake effects")]
+    public float shakeStrength = 6f;
+    [Tooltip("Strength used by Punch (scale amount)")]
+    public float punchStrength = 0.2f;
 
     [Header("Events")]
+    [Tooltip("Invoked when the bar turns yellow")]
+    public UnityEvent onEnterYellow;
+    [Tooltip("Invoked when the bar turns red")]
+    public UnityEvent onEnterRed;
     [Tooltip("Invoked when time runs out")]
     public UnityEvent onTimeUp;
 
     // ===== Runtime state =====
 
-    private readonly List<Slot> slots = new List<Slot>();
+    private readonly BarVisual[] barsByState = new BarVisual[3];
+    private readonly List<BarVisual> uniqueBars = new List<BarVisual>();
+    private readonly object fillTweenId = new object();
+
     private float timeLeft;
+    private float displayFill = 1f;
     private bool running;
-    private bool inWarning;
-    private int lastVisibleCount = -1;
-    private Vector3 barBasePos;
+    private BarState state;
     private GameManager gameManager;
     private bool stoppedByGameManager;
     private bool initialized;
+    private bool valid;
 
     public float TimeLeft => timeLeft;
     public bool IsRunning => running;
+    public BarState State => state;
+
+    /// <summary>True if the countdown was paused because GameManager.IsFinished became true</summary>
+    public bool StoppedByGameManager => stoppedByGameManager;
+
+    float TargetFill => totalTime > 0f ? Mathf.Clamp01(timeLeft / totalTime) : 0f;
 
     void Start()
     {
-        // Only builds the bar and shows it full. The countdown waits until StartTimer() is called
+        // Only sets up the bar and shows it full. The countdown waits until StartTimer() is called
         Initialize();
     }
 
-    /// <summary>Builds the bar once. Safe to call many times (also called automatically by StartTimer / ResetTimer)</summary>
+    /// <summary>Sets up the bars once. Safe to call many times (also called automatically by StartTimer / ResetTimer)</summary>
     void Initialize()
     {
         if (initialized) return;
         initialized = true;
-
-        barBasePos = transform.localPosition;
 
         if (gameManagerObject != null)
         {
@@ -128,40 +134,76 @@ public class CountdownBar : MonoBehaviour
                 Debug.LogError("[CountdownBar] The Game Manager Object has no GameManager script on it!");
         }
 
-        BuildBar();
+        if (normalBar == null)
+        {
+            Debug.LogError("[CountdownBar] Please assign at least the Normal Bar!");
+            return;
+        }
+
+        // A missing yellow / red bar falls back to the previous colour
+        BarVisual normal = AddBar(normalBar);
+        BarVisual yellow = yellowBar != null ? AddBar(yellowBar) : normal;
+        BarVisual red = redBar != null ? AddBar(redBar) : yellow;
+
+        barsByState[(int)BarState.Normal] = normal;
+        barsByState[(int)BarState.Yellow] = yellow;
+        barsByState[(int)BarState.Red] = red;
+
+        valid = true;
         ResetTimer();
+    }
+
+    BarVisual AddBar(Image image)
+    {
+        foreach (var b in uniqueBars)
+            if (b.image == image) return b;
+
+        var bar = new BarVisual(image, shrinkMode);
+        uniqueBars.Add(bar);
+        return bar;
     }
 
     void Update()
     {
-        if (!running) return;
+        if (!valid) return;
 
-        // Stop counting as soon as the GameManager says the game is finished
-        if (gameManager != null && gameManager.IsFinished)
+        float dt = useUnscaledTime ? Time.unscaledDeltaTime : Time.deltaTime;
+        bool timeUpNow = false;
+
+        if (running)
         {
-            stoppedByGameManager = true;
-            PauseTimer();
-            return;
+            // Stop counting as soon as the GameManager says the game is finished
+            if (gameManager != null && gameManager.IsFinished)
+            {
+                stoppedByGameManager = true;
+                running = false;
+            }
+            else
+            {
+                timeLeft -= dt;
+                if (timeLeft <= 0f)
+                {
+                    timeLeft = 0f;
+                    running = false;
+                    timeUpNow = true;
+                }
+            }
         }
 
-        timeLeft -= useUnscaledTime ? Time.unscaledDeltaTime : Time.deltaTime;
-        if (timeLeft <= 0f)
+        UpdateState(true);
+        UpdateDisplay(dt);
+
+        if (timeUpNow)
         {
-            timeLeft = 0f;
-            running = false;
-            RefreshBlocks(true);
             onTimeUp?.Invoke();
             if (gameManager != null) gameManager.GameOver();
-            return;
         }
-
-        RefreshBlocks(true);
     }
 
     void OnDestroy()
     {
-        DOTween.Kill(this);
-        foreach (var s in slots) { s.normal.Kill(); s.warning.Kill(); }
+        DOTween.Kill(fillTweenId);
+        foreach (var b in uniqueBars) b.Kill();
     }
 
     // ===== Public control methods (call these from other scripts or a UI Button's OnClick) =====
@@ -170,7 +212,7 @@ public class CountdownBar : MonoBehaviour
     public void StartTimer()
     {
         Initialize();
-        if (timeLeft <= 0f) return;
+        if (!valid || timeLeft <= 0f) return;
         if (gameManager != null && gameManager.IsFinished) return;
         stoppedByGameManager = false;
         running = true;
@@ -183,25 +225,16 @@ public class CountdownBar : MonoBehaviour
     public void ResetTimer()
     {
         Initialize();
+        if (!valid) return;
 
         running = false;
         stoppedByGameManager = false;
         timeLeft = totalTime;
-        lastVisibleCount = -1;
-        inWarning = false;
 
-        DOTween.Kill(this);
-        transform.localPosition = barBasePos;
-
-        foreach (var s in slots)
-        {
-            s.normal.Kill(); s.warning.Kill();
-            s.normal.ResetVisual(); s.warning.ResetVisual();
-            s.normal.go.SetActive(false); s.warning.go.SetActive(false);
-            s.shown = false;
-        }
-
-        RefreshBlocks(false);
+        DOTween.Kill(fillTweenId);
+        SetState(ComputeState(), false);
+        displayFill = 1f;
+        ApplyFill();
         PlayIntro();
     }
 
@@ -212,321 +245,139 @@ public class CountdownBar : MonoBehaviour
         StartTimer();
     }
 
-    /// <summary>True if the countdown was paused because GameManager.IsFinished became true</summary>
-    public bool StoppedByGameManager => stoppedByGameManager;
-
-    /// <summary>Add or subtract time (e.g. time bonus pickups, time penalties)</summary>
+    /// <summary>Add or subtract time (e.g. time bonus pickups, time penalties). The bar slides to its new length</summary>
     public void AddTime(float seconds)
     {
         timeLeft = Mathf.Clamp(timeLeft + seconds, 0f, totalTime);
-        RefreshBlocks(true);
+        if (valid) UpdateState(true);
     }
 
-    // ===== Building the bar =====
+    // ===== Core logic =====
 
-    void BuildBar()
+    BarState ComputeState()
     {
-        if (normalBlock == null || warningBlock == null)
-        {
-            Debug.LogError("[CountdownBar] Please assign both normalBlock and warningBlock!");
-            return;
-        }
-
-        bool isUI = normalBlock.GetComponent<RectTransform>() != null
-                    && GetComponentInParent<Canvas>() != null;
-
-        float step = spacing;
-        if (autoSpacing) step = GetBlockWidth(normalBlock, isUI) + spacing;
-
-        for (int i = 0; i < blockCount; i++)
-        {
-            Vector3 offset = new Vector3(step * i, 0f, 0f);
-
-            GameObject n = Instantiate(normalBlock, transform);
-            GameObject w = Instantiate(warningBlock, transform);
-            n.name = $"Block_{i}";
-            w.name = $"Block_{i}_Red";
-
-            PlaceAt(n, offset, isUI);
-            PlaceAt(w, offset, isUI);
-            n.SetActive(true);
-            w.SetActive(true);
-
-            slots.Add(new Slot
-            {
-                normal = new BlockVisual(n),
-                warning = new BlockVisual(w),
-            });
-        }
-
-        // If the source blocks are scene objects (not prefabs), hide the originals
-        if (normalBlock.scene.IsValid()) normalBlock.SetActive(false);
-        if (warningBlock.scene.IsValid()) warningBlock.SetActive(false);
+        if (timeLeft <= redTime) return BarState.Red;
+        if (timeLeft <= yellowTime) return BarState.Yellow;
+        return BarState.Normal;
     }
 
-    void PlaceAt(GameObject go, Vector3 offset, bool isUI)
+    void UpdateState(bool animate)
     {
-        if (isUI) go.GetComponent<RectTransform>().anchoredPosition = new Vector2(offset.x, 0f);
-        else go.transform.localPosition = offset;
+        BarState newState = ComputeState();
+        if (newState == state) return;
+
+        SetState(newState, animate);
+
+        if (newState == BarState.Yellow) onEnterYellow?.Invoke();
+        else if (newState == BarState.Red) onEnterRed?.Invoke();
     }
 
-    float GetBlockWidth(GameObject prefab, bool isUI)
+    /// <summary>Show only the bar for this state, then play its switch effect and loop</summary>
+    void SetState(BarState newState, bool animate)
     {
-        if (isUI)
-        {
-            RectTransform rt = prefab.GetComponent<RectTransform>();
-            return rt.rect.width * rt.localScale.x;
-        }
+        BarVisual previous = barsByState[(int)state];
+        state = newState;
+        BarVisual active = barsByState[(int)newState];
 
-        Renderer r = prefab.GetComponentInChildren<Renderer>();
-        if (r != null)
+        foreach (var b in uniqueBars)
         {
-            // Bounds may be zero for a prefab that isn't in the scene, so fall back to the sprite size
-            SpriteRenderer sr = r as SpriteRenderer;
-            if (sr != null && sr.sprite != null)
-                return sr.sprite.bounds.size.x * prefab.transform.localScale.x;
-            if (r.bounds.size.x > 0f) return r.bounds.size.x;
+            b.Kill();
+            b.ResetVisual();
+            b.go.SetActive(b == active);
         }
-        return prefab.transform.localScale.x;
+        ApplyFill();
+
+        // Skip the switch effect if the "new" bar is the same object (e.g. no red bar assigned)
+        if (animate && active != previous) PlaySwitch(active, newState);
+        else StartLoop(active, newState);
     }
 
-    // ===== Core update =====
-
-    /// <summary>Decide how many blocks to show and whether to use red, based on time left</summary>
-    void RefreshBlocks(bool animate)
+    void UpdateDisplay(float dt)
     {
-        if (slots.Count == 0) return;
+        // While the intro fill-up is playing, it controls the length
+        if (DOTween.IsTweening(fillTweenId)) return;
 
-        // Round up so at least one block stays visible until time actually hits 0
-        int visible = Mathf.Clamp(Mathf.CeilToInt(timeLeft / totalTime * blockCount), 0, blockCount);
-        bool warning = visible > 0 && visible <= warningBlockCount;
-
-        if (visible == lastVisibleCount && warning == inWarning) return; // Nothing changed
-
-        bool warningChanged = warning != inWarning;
-        inWarning = warning;
-        lastVisibleCount = visible;
-
-        int lost = 0;
-        int switchIndex = 0;
-
-        for (int i = 0; i < slots.Count; i++)
-        {
-            Slot s = slots[i];
-            bool show = i < visible; // Counted from the left, so the rightmost blocks disappear first
-
-            if (show)
-            {
-                if (!s.shown || warningChanged)
-                {
-                    bool animateSwitch = animate && warning && warningChanged && s.shown;
-                    ShowSlot(s, warning, animateSwitch, switchIndex * switchStagger);
-                    if (animateSwitch) switchIndex++;
-                }
-            }
-            else if (s.shown)
-            {
-                HideSlot(s, animate);
-                lost++;
-            }
-        }
-
-        if (animate && lost > 0 && visible > 0)
-            PlayBlockLostReaction(slots[visible - 1], warningChanged);
+        float target = TargetFill;
+        displayFill = catchUpSpeed > 0f
+            ? Mathf.MoveTowards(displayFill, target, catchUpSpeed * dt)
+            : target;
+        ApplyFill();
     }
 
-    void ShowSlot(Slot s, bool warning, bool animateSwitch, float delay)
+    void ApplyFill()
     {
-        s.normal.Kill(); s.warning.Kill();
-        s.normal.ResetVisual(); s.warning.ResetVisual();
-        s.shown = true;
-
-        if (warning && animateSwitch)
-        {
-            // Keep the normal block until this slot's turn in the wave, then swap
-            s.normal.go.SetActive(true);
-            s.warning.go.SetActive(false);
-
-            Sequence seq = NewSequence(s.warning.go);
-            if (delay > 0f) seq.AppendInterval(delay);
-            seq.AppendCallback(() =>
-            {
-                s.normal.go.SetActive(false);
-                s.warning.go.SetActive(true);
-            });
-            AppendSwitchEffect(seq, s.warning);
-            seq.OnComplete(() => StartLoop(s.warning));
-        }
-        else
-        {
-            s.normal.go.SetActive(!warning);
-            s.warning.go.SetActive(warning);
-            if (warning) StartLoop(s.warning);
-        }
-    }
-
-    void HideSlot(Slot s, bool animate)
-    {
-        s.shown = false;
-
-        BlockVisual v = s.ActiveVisual;
-        BlockVisual other = v == s.warning ? s.normal : s.warning;
-
-        s.normal.Kill(); s.warning.Kill();
-        other.ResetVisual();
-        other.go.SetActive(false);
-        v.ResetVisual();
-
-        if (!animate || disappearEffect == DisappearEffect.None)
-        {
-            v.go.SetActive(false);
-            return;
-        }
-
-        Sequence seq = NewSequence(v.go);
-        AppendDisappearEffect(seq, v);
-        seq.OnComplete(() =>
-        {
-            v.go.SetActive(false);
-            v.ResetVisual();
-        });
+        foreach (var b in uniqueBars) b.SetFill(displayFill, shrinkMode);
     }
 
     // ===== Effects =====
 
     void PlayIntro()
     {
-        if (introEffect == IntroEffect.None) return;
+        BarVisual v = barsByState[(int)state];
+        BarState s = state;
 
-        int k = 0;
-        foreach (Slot s in slots)
+        switch (introEffect)
         {
-            if (!s.shown) continue;
+            case IntroEffect.FillUp:
+                displayFill = 0f;
+                ApplyFill();
+                DOTween.To(() => displayFill, x => { displayFill = x; ApplyFill(); }, 1f, introDuration)
+                    .SetEase(Ease.OutCubic)
+                    .SetId(fillTweenId)
+                    .SetUpdate(useUnscaledTime);
+                break;
 
-            BlockVisual v = s.ActiveVisual;
-            bool isWarning = v == s.warning;
-            v.Kill();
-            v.ResetVisual();
-
-            Sequence seq = NewSequence(v.go);
-            seq.AppendInterval(k * introStagger);
-
-            switch (introEffect)
-            {
-                case IntroEffect.ScaleIn:
-                    v.t.localScale = Vector3.zero;
-                    seq.Append(v.t.DOScale(v.scale, introDuration).SetEase(Ease.OutBack));
-                    break;
-
-                case IntroEffect.FadeIn:
+            case IntroEffect.FadeIn:
+                {
+                    v.Kill();
+                    v.ResetVisual();
                     v.alpha.Set(0f);
+                    Sequence seq = NewSequence(v.go);
                     seq.Append(FadeTo(v, 1f, introDuration));
+                    seq.OnComplete(() => StartLoop(v, s));
                     break;
+                }
 
-                case IntroEffect.DropIn:
-                    v.t.localPosition = v.pos + Vector3.up * moveDistance;
-                    v.alpha.Set(0f);
-                    seq.Append(v.t.DOLocalMove(v.pos, introDuration).SetEase(Ease.OutBounce));
-                    seq.Join(FadeTo(v, 1f, introDuration * 0.5f));
+            case IntroEffect.ScaleIn:
+                {
+                    v.Kill();
+                    v.ResetVisual();
+                    v.rt.localScale = new Vector3(v.scale.x, 0f, v.scale.z);
+                    Sequence seq = NewSequence(v.go);
+                    seq.Append(v.rt.DOScaleY(v.scale.y, introDuration).SetEase(Ease.OutBack));
+                    seq.OnComplete(() => StartLoop(v, s));
                     break;
-            }
-
-            if (isWarning) seq.OnComplete(() => StartLoop(v));
-            k++;
+                }
         }
     }
 
-    void AppendDisappearEffect(Sequence seq, BlockVisual v)
+    void PlaySwitch(BarVisual v, BarState s)
     {
-        float d = disappearDuration;
+        SwitchEffect effect = s == BarState.Yellow ? yellowSwitchEffect
+                            : s == BarState.Red ? redSwitchEffect
+                            : SwitchEffect.None;
 
-        switch (disappearEffect)
+        if (effect == SwitchEffect.None)
         {
-            case DisappearEffect.Shrink:
-                seq.Append(v.t.DOScale(0f, d).SetEase(disappearEase));
-                break;
-
-            case DisappearEffect.Fade:
-                seq.Append(FadeTo(v, 0f, d).SetEase(disappearEase));
-                break;
-
-            case DisappearEffect.ShrinkAndFade:
-                seq.Append(v.t.DOScale(0f, d).SetEase(disappearEase));
-                seq.Join(FadeTo(v, 0f, d));
-                break;
-
-            case DisappearEffect.FallDown:
-                seq.Append(v.t.DOLocalMoveY(v.pos.y - moveDistance, d).SetEase(Ease.InQuad));
-                seq.Join(FadeTo(v, 0f, d));
-                break;
-
-            case DisappearEffect.FlyUp:
-                seq.Append(v.t.DOLocalMoveY(v.pos.y + moveDistance, d).SetEase(Ease.OutQuad));
-                seq.Join(FadeTo(v, 0f, d));
-                break;
-
-            case DisappearEffect.PopAndVanish:
-                seq.Append(v.t.DOScale(v.scale * 1.3f, d * 0.3f).SetEase(Ease.OutQuad));
-                seq.Append(v.t.DOScale(0f, d * 0.7f).SetEase(disappearEase));
-                break;
-
-            case DisappearEffect.SpinOut:
-                seq.Append(v.t.DOLocalRotate(new Vector3(0f, 0f, 360f), d, RotateMode.FastBeyond360));
-                seq.Join(v.t.DOScale(0f, d).SetEase(disappearEase));
-                break;
-
-            case DisappearEffect.ShakeThenVanish:
-                seq.Append(v.t.DOShakePosition(d * 0.6f, shakeStrength, 25));
-                seq.Append(v.t.DOScale(0f, d * 0.4f).SetEase(disappearEase));
-                break;
+            StartLoop(v, s);
+            return;
         }
-    }
 
-    void PlayBlockLostReaction(Slot lastSlot, bool warningJustChanged)
-    {
-        switch (blockLostReaction)
-        {
-            case BlockLostReaction.ShakeBar:
-                DOTween.Kill(this);
-                transform.localPosition = barBasePos;
-                transform.DOShakePosition(reactionDuration, shakeStrength, 20)
-                    .SetId(this)
-                    .SetUpdate(useUnscaledTime)
-                    .OnComplete(() => transform.localPosition = barBasePos);
-                break;
-
-            case BlockLostReaction.PunchLastBlock:
-                // Skip on the frame the bar turns red, so it doesn't fight the switch effect
-                if (warningJustChanged) return;
-
-                BlockVisual v = lastSlot.ActiveVisual;
-                bool isWarning = v == lastSlot.warning;
-                v.Kill();
-                v.ResetVisual();
-
-                Sequence seq = NewSequence(v.go);
-                seq.Append(v.t.DOPunchScale(Vector3.one * punchStrength, reactionDuration, 8, 0.5f));
-                if (isWarning) seq.OnComplete(() => StartLoop(v));
-                break;
-        }
-    }
-
-    void AppendSwitchEffect(Sequence seq, BlockVisual v)
-    {
         float d = switchDuration;
+        Sequence seq = NewSequence(v.go);
 
-        switch (warningSwitchEffect)
+        switch (effect)
         {
-            case WarningSwitchEffect.Punch:
-                seq.Append(v.t.DOPunchScale(Vector3.one * punchStrength, d, 8, 0.5f));
+            case SwitchEffect.Punch:
+                seq.Append(v.rt.DOPunchScale(Vector3.one * punchStrength, d, 8, 0.5f));
                 break;
 
-            case WarningSwitchEffect.PopIn:
-                seq.AppendCallback(() => v.t.localScale = Vector3.zero);
-                seq.Append(v.t.DOScale(v.scale, d).SetEase(Ease.OutBack));
+            case SwitchEffect.PopIn:
+                v.rt.localScale = new Vector3(v.scale.x, 0f, v.scale.z);
+                seq.Append(v.rt.DOScaleY(v.scale.y, d).SetEase(Ease.OutBack));
                 break;
 
-            case WarningSwitchEffect.FlashIn:
+            case SwitchEffect.Flash:
                 float step = d / 6f;
                 for (int i = 0; i < 3; i++)
                 {
@@ -534,32 +385,46 @@ public class CountdownBar : MonoBehaviour
                     seq.Append(FadeTo(v, 1f, step));
                 }
                 break;
+
+            case SwitchEffect.Shake:
+                seq.Append(v.rt.DOShakePosition(d, shakeStrength, 25));
+                break;
         }
+
+        seq.OnComplete(() =>
+        {
+            v.ResetVisual();
+            StartLoop(v, s);
+        });
     }
 
-    void StartLoop(BlockVisual v)
+    void StartLoop(BarVisual v, BarState s)
     {
-        if (!inWarning || !v.go.activeInHierarchy) return;
+        if (s != state || !v.go.activeInHierarchy) return;
+
+        LoopEffect effect = s == BarState.Yellow ? yellowLoopEffect
+                          : s == BarState.Red ? redLoopEffect
+                          : LoopEffect.None;
 
         float half = loopDuration * 0.5f;
         Tween t = null;
 
-        switch (warningLoopEffect)
+        switch (effect)
         {
-            case WarningLoopEffect.Pulse:
-                t = v.t.DOScale(v.scale * pulseScale, half).SetEase(Ease.InOutSine).SetLoops(-1, LoopType.Yoyo);
+            case LoopEffect.Pulse:
+                t = v.rt.DOScaleY(v.scale.y * pulseScale, half).SetEase(Ease.InOutSine).SetLoops(-1, LoopType.Yoyo);
                 break;
 
-            case WarningLoopEffect.Blink:
+            case LoopEffect.Blink:
                 t = FadeTo(v, blinkMinAlpha, half).SetEase(Ease.InOutSine).SetLoops(-1, LoopType.Yoyo);
                 break;
 
-            case WarningLoopEffect.Shake:
-                t = v.t.DOShakePosition(loopDuration, shakeStrength, 15, 90f, false, false).SetLoops(-1, LoopType.Restart);
+            case LoopEffect.Shake:
+                t = v.rt.DOShakePosition(loopDuration, shakeStrength, 15, 90f, false, false).SetLoops(-1, LoopType.Restart);
                 break;
 
-            case WarningLoopEffect.Bounce:
-                t = v.t.DOLocalMoveY(v.pos.y + moveDistance * 0.3f, half).SetEase(Ease.OutQuad).SetLoops(-1, LoopType.Yoyo);
+            case LoopEffect.Bounce:
+                t = v.rt.DOLocalMoveY(v.pos.y + moveDistance, half).SetEase(Ease.OutQuad).SetLoops(-1, LoopType.Yoyo);
                 break;
         }
 
@@ -573,59 +438,82 @@ public class CountdownBar : MonoBehaviour
         return DOTween.Sequence().SetId(id).SetUpdate(useUnscaledTime);
     }
 
-    Tween FadeTo(BlockVisual v, float target, float duration)
+    Tween FadeTo(BarVisual v, float target, float duration)
     {
         return DOTween.To(() => v.alpha.Factor, x => v.alpha.Set(x), target, duration);
     }
 
-    /// <summary>One position in the bar: holds both the normal and the red block</summary>
-    class Slot
+    /// <summary>Moves the pivot without moving the rectangle on screen</summary>
+    static void SetPivotKeepRect(RectTransform rt, Vector2 pivot)
     {
-        public BlockVisual normal;
-        public BlockVisual warning;
-        public bool shown;
-
-        public BlockVisual ActiveVisual => warning.go.activeSelf ? warning : normal;
+        Vector2 size = rt.rect.size;
+        Vector2 delta = pivot - rt.pivot;
+        rt.pivot = pivot;
+        rt.anchoredPosition += new Vector2(delta.x * size.x * rt.localScale.x, delta.y * size.y * rt.localScale.y);
     }
 
-    /// <summary>A block instance plus its original transform values, so effects can always restore it</summary>
-    class BlockVisual
+    /// <summary>One bar image plus its original transform values, so effects can always restore it</summary>
+    class BarVisual
     {
+        public readonly Image image;
         public readonly GameObject go;
-        public readonly Transform t;
+        public readonly RectTransform rt;
         public readonly Vector3 pos;
         public readonly Vector3 scale;
         public readonly Quaternion rot;
+        public readonly float width;
         public readonly AlphaGroup alpha;
 
-        public BlockVisual(GameObject go)
+        public BarVisual(Image image, ShrinkMode mode)
         {
-            this.go = go;
-            t = go.transform;
-            pos = t.localPosition;
-            scale = t.localScale;
-            rot = t.localRotation;
+            this.image = image;
+            go = image.gameObject;
+            rt = image.rectTransform;
+
+            if (mode == ShrinkMode.Fill)
+            {
+                if (image.sprite == null)
+                    Debug.LogWarning($"[CountdownBar] '{go.name}' has no Source Image. Fill mode needs a sprite; use Width mode instead.");
+                image.type = Image.Type.Filled;
+                image.fillMethod = Image.FillMethod.Horizontal;
+                image.fillOrigin = (int)Image.OriginHorizontal.Left; // keeps the left side, shrinks from the right
+            }
+            else
+            {
+                // Pivot on the left edge so changing the width shrinks it from the right
+                SetPivotKeepRect(rt, new Vector2(0f, rt.pivot.y));
+                width = rt.rect.width;
+            }
+
+            pos = rt.localPosition;
+            scale = rt.localScale;
+            rot = rt.localRotation;
             alpha = new AlphaGroup(go);
+        }
+
+        public void SetFill(float fill, ShrinkMode mode)
+        {
+            fill = Mathf.Clamp01(fill);
+            if (mode == ShrinkMode.Fill) image.fillAmount = fill;
+            else rt.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width * fill);
         }
 
         public void Kill() => DOTween.Kill(go);
 
         public void ResetVisual()
         {
-            t.localPosition = pos;
-            t.localScale = scale;
-            t.localRotation = rot;
+            rt.localPosition = pos;
+            rt.localScale = scale;
+            rt.localRotation = rot;
             alpha.Set(1f);
         }
     }
 
-    /// <summary>Fades a block and all its children (CanvasGroup, UI Graphics or SpriteRenderers)</summary>
+    /// <summary>Fades a bar and all its children (CanvasGroup if present, otherwise every UI Graphic)</summary>
     class AlphaGroup
     {
         private readonly CanvasGroup canvasGroup;
         private readonly float canvasGroupAlpha;
-        private readonly SpriteRenderer[] sprites;
-        private readonly float[] spriteAlphas;
         private readonly Graphic[] graphics;
         private readonly float[] graphicAlphas;
 
@@ -640,10 +528,6 @@ public class CountdownBar : MonoBehaviour
                 return;
             }
 
-            sprites = go.GetComponentsInChildren<SpriteRenderer>(true);
-            spriteAlphas = new float[sprites.Length];
-            for (int i = 0; i < sprites.Length; i++) spriteAlphas[i] = sprites[i].color.a;
-
             graphics = go.GetComponentsInChildren<Graphic>(true);
             graphicAlphas = new float[graphics.Length];
             for (int i = 0; i < graphics.Length; i++) graphicAlphas[i] = graphics[i].color.a;
@@ -657,13 +541,6 @@ public class CountdownBar : MonoBehaviour
             {
                 canvasGroup.alpha = canvasGroupAlpha * factor;
                 return;
-            }
-
-            for (int i = 0; i < sprites.Length; i++)
-            {
-                Color c = sprites[i].color;
-                c.a = spriteAlphas[i] * factor;
-                sprites[i].color = c;
             }
 
             for (int i = 0; i < graphics.Length; i++)

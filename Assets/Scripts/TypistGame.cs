@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using UnityEngine.Serialization;
 
 public class TypistGame : MonoBehaviour
 {
@@ -39,14 +40,13 @@ public class TypistGame : MonoBehaviour
     [Tooltip("Blink interval for the normal cursor (in seconds).")]
     public float cursorBlinkInterval = 0.5f;
     [Range(0.5f, 1f)]
-    [Tooltip("How long the red error state (error background + error cursor) stays visible after a typo (in seconds).")]
+    [Tooltip("How long the red error state (Error Redbox + error cursor) stays visible after a typo (in seconds).")]
     public float errorFlashDuration = 0.5f;
 
-    [Header("【Background Settings】")]
-    [Tooltip("Background Image displayed during normal gameplay.")]
-    public Image normalBackground;
-    [Tooltip("Background Image displayed when an input error occurs.")]
-    public Image errorBackground;
+    [Header("【Error Redbox Settings】")]
+    [Tooltip("Red box Image shown when an input error occurs (and kept on Game Over). The background itself always stays visible.")]
+    [FormerlySerializedAs("errorBackground")]   // Keeps the reference previously assigned to Error Background
+    public Image errorRedbox;
 
     [Header("【UI & External Script References】")]
     [Tooltip("Button to complete the current line/stage.")]
@@ -116,7 +116,7 @@ public class TypistGame : MonoBehaviour
             enterButton.onClick.AddListener(OnEnterPressed);
         }
 
-        SetBackgroundState(isError: false);
+        SetErrorRedboxVisible(false);
         HideCursors();
     }
 
@@ -210,7 +210,7 @@ public class TypistGame : MonoBehaviour
         currentIndex = 0;
         isLineCompleted = false;
         hasError = false;
-        SetBackgroundState(isError: false);
+        SetErrorRedboxVisible(false);
         SetEnterButtonHighlighted(false);   // Back to the normal EnterButton look for the new stage
 
         // Pick a new text that is different from the previous line
@@ -278,12 +278,12 @@ public class TypistGame : MonoBehaviour
 
         if (inputChar == expectedChar)
         {
-            // Correct input: reset error background if previously active
+            // Correct input: hide Error Redbox if previously shown
             if (hasError)
             {
                 StopErrorFlash();
                 hasError = false;
-                SetBackgroundState(isError: false);
+                SetErrorRedboxVisible(false);
             }
 
             // Update completed character visual feedback (solid black: 100% alpha)
@@ -309,13 +309,13 @@ public class TypistGame : MonoBehaviour
     }
 
     /// <summary>
-    /// Shows the red error background and error cursor for errorFlashDuration seconds.
+    /// Shows the Error Redbox and error cursor for errorFlashDuration seconds.
     /// </summary>
     private void TriggerTypoError()
     {
         StopErrorFlash();
         hasError = true;
-        SetBackgroundState(isError: true);
+        SetErrorRedboxVisible(true);
         ShowErrorCursor(currentIndex);
         errorFlashCoroutine = StartCoroutine(ErrorFlashRoutine());
 
@@ -338,7 +338,7 @@ public class TypistGame : MonoBehaviour
         if (!isGameActive) yield break;
 
         hasError = false;
-        SetBackgroundState(isError: false);
+        SetErrorRedboxVisible(false);
         if (!isLineCompleted) UpdateCursorPosition();
     }
 
@@ -430,8 +430,8 @@ public class TypistGame : MonoBehaviour
         HideCursors();
         SetEnterButtonHighlighted(false);
 
-        // Switch permanently to the red error background and red error cursor
-        SetBackgroundState(isError: true);
+        // Keep the Error Redbox and red error cursor shown permanently
+        SetErrorRedboxVisible(true);
         if (textContainer.childCount > 0)
         {
             int cursorIndex = Mathf.Clamp(currentIndex, 0, textContainer.childCount - 1);
@@ -541,12 +541,11 @@ public class TypistGame : MonoBehaviour
     }
 
     /// <summary>
-    /// Toggles background images between normal and error states.
+    /// Shows or hides the Error Redbox. The background is not touched and always stays visible.
     /// </summary>
-    private void SetBackgroundState(bool isError)
+    private void SetErrorRedboxVisible(bool visible)
     {
-        if (normalBackground != null) normalBackground.gameObject.SetActive(!isError);
-        if (errorBackground != null) errorBackground.gameObject.SetActive(isError);
+        if (errorRedbox != null) errorRedbox.gameObject.SetActive(visible);
     }
 
     /// <summary>
@@ -614,7 +613,7 @@ public class TypistGame : MonoBehaviour
             // 長度 5
             { 5, new string[] {
                 "Hello", "Sorry", "Yours", "Hi Jo", "Hi Ed",
-                "Hi Al", "Hi Ma", "Later", "Peace", "Hi AI"
+                "Hi Bo", "Hi Ma", "Later", "Peace", "Hi AI"
             }},
             // 長度 6
             { 6, new string[] {
@@ -624,7 +623,7 @@ public class TypistGame : MonoBehaviour
             // 長度 7
             { 7, new string[] {
                 "Regards", "See you", "Bye now", "Hi team", "Hi dear",
-                "Love ya", "Miss ya", "Dear Al", "Love Ma", "Dear AI"
+                "Love ya", "Miss ya", "Dear Jo", "Love Ma", "Dear AI"
             }},
             // 長度 8
             { 8, new string[] {
