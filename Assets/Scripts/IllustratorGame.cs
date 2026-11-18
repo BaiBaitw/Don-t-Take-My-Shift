@@ -42,13 +42,11 @@ public class IllustratorGame : MonoBehaviour
     [Tooltip("Only search this far ahead along the path, so the player cannot shortcut to a nearby segment")]
     public float lookAhead = 1.5f;
 
-    [Header("Background")]
-    [Tooltip("Background shown normally")]
-    public GameObject painterBackground;
-    [Tooltip("Background shown for a while after the cursor leaves the path")]
-    public GameObject painterBackgroundWrong;
-    [Tooltip("Seconds the wrong background stays visible before switching back")]
-    public float wrongDisplayDuration = 1f;
+    [Header("Error Feedback")]
+    [Tooltip("Shown for a while when the cursor leaves the path; hidden the rest of the time")]
+    public GameObject errorRedbox;
+    [Tooltip("Seconds the Error Redbox stays visible before it disappears")]
+    public float errorDisplayDuration = 1f;
 
     [Header("Cursor")]
     [Tooltip("Custom mouse cursor for this level; leave empty to keep the system cursor. Set the image's Texture Type to Cursor")]
@@ -97,7 +95,7 @@ public class IllustratorGame : MonoBehaviour
     Transform marker;
     SpriteRenderer markerRenderer;
     Camera cam;
-    Coroutine wrongRoutine;
+    Coroutine errorRoutine;
     Coroutine nextRoutine;
     GameManager gm;
     PlayerScript playerScript;
@@ -140,7 +138,7 @@ public class IllustratorGame : MonoBehaviour
         guideLine = CreateLine("GuideLine", guideColor, 0, true);
         drawnLine = CreateLine("DrawnLine", drawColor, 1, false);
         marker = CreateMarker();
-        ShowWrongBackground(false);
+        ShowErrorRedbox(false);
         guideLine.positionCount = 0;          // nothing is shown until StartGame()
         drawnLine.positionCount = 0;
         marker.gameObject.SetActive(false);
@@ -189,8 +187,8 @@ public class IllustratorGame : MonoBehaviour
     }
 
     /// <summary>
-    /// While GameManager.IsGameOver is true: show the wrong background and block drawing.
-    /// When it turns false again, the normal background comes back and drawing is allowed.
+    /// While GameManager.IsGameOver is true: keep the Error Redbox visible and block drawing.
+    /// When it turns false again, the Error Redbox is hidden and drawing is allowed.
     /// </summary>
     void CheckGameOver()
     {
@@ -201,22 +199,22 @@ public class IllustratorGame : MonoBehaviour
         if (gameOver)
         {
             drawing = false;
-            if (wrongRoutine != null)
+            if (errorRoutine != null)
             {
-                StopCoroutine(wrongRoutine);
-                wrongRoutine = null;
+                StopCoroutine(errorRoutine);
+                errorRoutine = null;
             }
             if (nextRoutine != null)
             {
                 StopCoroutine(nextRoutine);
                 nextRoutine = null;
             }
-            ShowWrongBackground(true);
+            ShowErrorRedbox(true);
             marker.gameObject.SetActive(false);
         }
         else
         {
-            ShowWrongBackground(false);
+            ShowErrorRedbox(false);
             if (currentIndex >= 0) UpdateVisuals();
         }
     }
@@ -267,7 +265,7 @@ public class IllustratorGame : MonoBehaviour
         if (dist > pathTolerance)
         {
             drawing = false;          // off the path: pause, progress stays
-            TriggerWrong();
+            TriggerError();
             if (playerScript != null) playerScript.PlayWrongAnimation();
             onPaused.Invoke();
             return;
@@ -326,36 +324,35 @@ public class IllustratorGame : MonoBehaviour
         guideLine.positionCount = pts.Count;
         for (int i = 0; i < pts.Count; i++) guideLine.SetPosition(i, pts[i]);
 
-        ShowWrongBackground(false);
+        ShowErrorRedbox(false);
         ResetDrawing();
         onNewPuzzle.Invoke();
     }
 
-    // ---------- Background ----------
+    // ---------- Error feedback ----------
 
-    void TriggerWrong()
+    void TriggerError()
     {
-        if (wrongRoutine != null) StopCoroutine(wrongRoutine);
-        wrongRoutine = StartCoroutine(WrongRoutine());
+        if (errorRoutine != null) StopCoroutine(errorRoutine);
+        errorRoutine = StartCoroutine(ErrorRoutine());
     }
 
-    IEnumerator WrongRoutine()
+    IEnumerator ErrorRoutine()
     {
-        ShowWrongBackground(true);
-        yield return new WaitForSeconds(wrongDisplayDuration);
-        ShowWrongBackground(false);
-        wrongRoutine = null;
+        ShowErrorRedbox(true);
+        yield return new WaitForSeconds(errorDisplayDuration);
+        ShowErrorRedbox(false);
+        errorRoutine = null;
     }
 
-    void ShowWrongBackground(bool wrong)
+    void ShowErrorRedbox(bool show)
     {
-        if (!wrong && wrongRoutine != null)
+        if (!show && errorRoutine != null)
         {
-            StopCoroutine(wrongRoutine);
-            wrongRoutine = null;
+            StopCoroutine(errorRoutine);
+            errorRoutine = null;
         }
-        if (painterBackground != null) painterBackground.SetActive(!wrong);
-        if (painterBackgroundWrong != null) painterBackgroundWrong.SetActive(wrong);
+        if (errorRedbox != null) errorRedbox.SetActive(show);
     }
 
     // ---------- Path math ----------
