@@ -5,6 +5,18 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 #endif
 
+public enum ButtonSuccessEffect
+{
+    None,     // No effect
+    Bounce,   // Jumps up and lands back
+    Pop,      // Scales up and back down
+    Punch,    // Elastic, wobbly scale
+    Squash,   // Squashes and stretches like jelly
+    Shake,    // Shakes left and right
+    Spin,     // Spins one full turn
+    Random    // Picks a random effect each time
+}
+
 public class FactoryManager : MonoBehaviour
 {
     [Header("Prefabs / Objects")]
@@ -38,6 +50,10 @@ public class FactoryManager : MonoBehaviour
     [Tooltip("Drag in the countdownBar object (with the CountdownBar script attached)")]
     public CountdownBar countdownBar;
 
+    [Header("Screen Shake")]
+    [Tooltip("ScreenShake component; the whole screen shakes on a wrong input")]
+    public ScreenShake screenShake;
+
     [Header("Settings")]
     [Tooltip("Number of buttons randomly created per row")]
     public int buttonCount = 4;
@@ -49,6 +65,18 @@ public class FactoryManager : MonoBehaviour
     public float errorDisplayTime = 0.5f;
     [Tooltip("How many buttons are added each time IncreaseDifficulty() is called")]
     public int difficultyIncrease = 1;
+
+    [Header("Success Effect")]
+    [Tooltip("Visual effect played on a button when it is pressed correctly")]
+    public ButtonSuccessEffect successEffect = ButtonSuccessEffect.Pop;
+    [Tooltip("How long the effect lasts (seconds)")]
+    public float effectDuration = 0.25f;
+    [Tooltip("Bounce: how high the button jumps (pixels for UI, world units for 2D/3D)")]
+    public float bounceHeight = 30f;
+    [Tooltip("Pop / Punch / Squash: how much the scale changes (0.3 = 30%)")]
+    public float scaleAmount = 0.3f;
+    [Tooltip("Shake: how far the button shakes sideways")]
+    public float shakeStrength = 10f;
 
     // ===== Runtime state =====
     private readonly List<GameObject> spawnedButtons = new List<GameObject>();
@@ -214,6 +242,9 @@ public class FactoryManager : MonoBehaviour
             spawnedFinishedCircles.Add(done);
         }
 
+        // Play the success effect on this button
+        PlaySuccessEffect(btn);
+
         currentIndex++;
 
         if (currentIndex < spawnedButtons.Count)
@@ -240,6 +271,10 @@ public class FactoryManager : MonoBehaviour
         // Wait one frame so GameManager can update IsFinished / IsGameOver
         yield return null;
 
+        // Let the last button's effect finish before the row is replaced
+        if (successEffect != ButtonSuccessEffect.None && effectDuration > 0f)
+            yield return new WaitForSeconds(effectDuration);
+
         if (gameManager != null && gameManager.IsFinished)
         {
             // Finished: stop here
@@ -264,6 +299,10 @@ public class FactoryManager : MonoBehaviour
         // Apply the time penalty for a wrong input
         if (countdownBar != null)
             countdownBar.ApplyPenalty();
+
+        // Shake the whole screen (scene + UI)
+        if (screenShake != null)
+            screenShake.Shake();
 
         if (errorCoroutine != null) StopCoroutine(errorCoroutine);
         errorCoroutine = StartCoroutine(ErrorRoutine());
@@ -303,6 +342,80 @@ public class FactoryManager : MonoBehaviour
 #else
         return Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.RightArrow);
 #endif
+    }
+
+    // ================= Success Effect =================
+
+    private void PlaySuccessEffect(GameObject btn)
+    {
+        ButtonSuccessEffect effect = successEffect;
+
+        if (effect == ButtonSuccessEffect.Random)
+            effect = (ButtonSuccessEffect)UnityEngine.Random.Range(
+                (int)ButtonSuccessEffect.Bounce, (int)ButtonSuccessEffect.Random);
+
+        if (effect == ButtonSuccessEffect.None || btn == null) return;
+
+        StartCoroutine(SuccessEffectRoutine(btn.transform, effect));
+    }
+
+    private IEnumerator SuccessEffectRoutine(Transform t, ButtonSuccessEffect effect)
+    {
+        Vector2 basePos = GetLocalPosition(t.gameObject);
+        Vector3 baseScale = t.localScale;
+        Quaternion baseRot = t.localRotation;
+        float duration = Mathf.Max(0.01f, effectDuration);
+        float time = 0f;
+
+        while (time < duration)
+        {
+            if (t == null) yield break; // Button was destroyed (row cleared)
+
+            float p = time / duration;           // 0 -> 1
+            float arc = Mathf.Sin(p * Mathf.PI); // 0 -> 1 -> 0
+            float decay = 1f - p;                // 1 -> 0
+
+            switch (effect)
+            {
+                case ButtonSuccessEffect.Bounce:
+                    SetLocalPosition(t.gameObject, basePos + Vector2.up * arc * bounceHeight);
+                    break;
+
+                case ButtonSuccessEffect.Pop:
+                    t.localScale = baseScale * (1f + arc * scaleAmount);
+                    break;
+
+                case ButtonSuccessEffect.Punch:
+                    t.localScale = baseScale * (1f + Mathf.Sin(p * Mathf.PI * 4f) * scaleAmount * decay);
+                    break;
+
+                case ButtonSuccessEffect.Squash:
+                    float s = Mathf.Sin(p * Mathf.PI * 2f) * scaleAmount * decay;
+                    t.localScale = new Vector3(baseScale.x * (1f + s), baseScale.y * (1f - s), baseScale.z);
+                    break;
+
+                case ButtonSuccessEffect.Shake:
+                    SetLocalPosition(t.gameObject,
+                        basePos + Vector2.right * Mathf.Sin(p * Mathf.PI * 6f) * shakeStrength * decay);
+                    break;
+
+                case ButtonSuccessEffect.Spin:
+                    float eased = 1f - (1f - p) * (1f - p); // Ease out
+                    t.localRotation = baseRot * Quaternion.Euler(0f, 0f, -360f * eased);
+                    break;
+            }
+
+            time += Time.deltaTime;
+            yield return null;
+        }
+
+        // Restore the original state
+        if (t != null)
+        {
+            SetLocalPosition(t.gameObject, basePos);
+            t.localScale = baseScale;
+            t.localRotation = baseRot;
+        }
     }
 
     // ================= Mouse Hint =================
@@ -345,6 +458,13 @@ public class FactoryManager : MonoBehaviour
             rt.anchoredPosition = pos;
         else
             obj.transform.localPosition = new Vector3(pos.x, pos.y, obj.transform.localPosition.z);
+    }
+
+    private Vector2 GetLocalPosition(GameObject obj)
+    {
+        if (obj.transform is RectTransform rt)
+            return rt.anchoredPosition;
+        return obj.transform.localPosition;
     }
 
     // Parents the object under the button and centers it (drawn on top)

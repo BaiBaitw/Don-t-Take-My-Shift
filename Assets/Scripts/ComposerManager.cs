@@ -57,12 +57,22 @@ public class ComposerManager : MonoBehaviour
     [Tooltip("How long the red box stays visible (seconds)")]
     public float errorShowTime = 0.5f;
 
+    [Tooltip("ScreenShake component to trigger on a wrong press (optional)")]
+    public ScreenShake screenShake;
+
+    [Tooltip("Object that has the CountdownBar script attached")]
+    public GameObject countdownBar;
+
+    [Tooltip("Value passed to CountdownBar.ApplyPenalty() on a wrong press")]
+    public float penaltyAmount = 1f;
+
     // Internal state
     private readonly List<NumberDisplay> spawnedNumbers = new List<NumberDisplay>();
     private readonly List<int> answers = new List<int>();
     private int currentIndex = 0;
     private bool isPlaying = false;
     private GameManager gm;
+    private CountdownBar countdown;
     private Coroutine errorCoroutine;
 
     // Index 1-5 used; index 0 unused
@@ -82,6 +92,9 @@ public class ComposerManager : MonoBehaviour
 
         if (gameManager != null)
             gm = gameManager.GetComponent<GameManager>();
+
+        if (countdownBar != null)
+            countdown = countdownBar.GetComponent<CountdownBar>();
 
         keyboards = new GameObject[] { keyboard0, keyboard1, keyboard2, keyboard3, keyboard4, keyboard5 };
         buttons = new Button[] { null, button1, button2, button3, button4, button5 };
@@ -233,6 +246,12 @@ public class ComposerManager : MonoBehaviour
         {
             // Wrong
             ShowError();
+
+            if (screenShake != null)
+                screenShake.Shake();
+
+            if (countdown != null)
+                countdown.ApplyPenalty(penaltyAmount);
         }
     }
 

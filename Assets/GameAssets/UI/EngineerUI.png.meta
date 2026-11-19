@@ -818,7 +818,7 @@ TextureImporter:
         width: 401
         height: 12
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -840,7 +840,7 @@ TextureImporter:
         width: 405
         height: 12
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -849,6 +849,28 @@ TextureImporter:
       bones: []
       spriteID: 21b13d91fea3eb843a90f743c6589b7d
       internalID: -391542634
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: EngineerUI_30
+      rect:
+        serializedVersion: 2
+        x: 154
+        y: 107
+        width: 44
+        height: 14
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 316aedbe29ff5db42a89b9d93682410e
+      internalID: 421180996
       vertices: []
       indices: 
       edges: []
@@ -891,6 +913,7 @@ TextureImporter:
       EngineerUI_28: 1658903425
       EngineerUI_29: -391542634
       EngineerUI_3: -6742110663040227910
+      EngineerUI_30: 421180996
       EngineerUI_4: -4978699808915121071
       EngineerUI_5: -8458119122707010874
       EngineerUI_6: -4356293559033843966

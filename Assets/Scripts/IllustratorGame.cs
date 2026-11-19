@@ -47,6 +47,12 @@ public class IllustratorGame : MonoBehaviour
     public GameObject errorRedbox;
     [Tooltip("Seconds the Error Redbox stays visible before it disappears")]
     public float errorDisplayDuration = 1f;
+    [Tooltip("Optional: ScreenShake component to shake the screen each time the cursor leaves the path (uses its Default Settings)")]
+    public ScreenShake screenShake;
+    [Tooltip("Optional: CountdownBar component; ApplyPenalty(penaltyAmount) is called each time the cursor leaves the path")]
+    public CountdownBar countdownBar;
+    [Tooltip("Value passed to CountdownBar.ApplyPenalty() on each mistake")]
+    public float penaltyAmount = 1f;
 
     [Header("Cursor")]
     [Tooltip("Custom mouse cursor for this level; leave empty to keep the system cursor. Set the image's Texture Type to Cursor")]
@@ -266,6 +272,8 @@ public class IllustratorGame : MonoBehaviour
         {
             drawing = false;          // off the path: pause, progress stays
             TriggerError();
+            if (screenShake != null) screenShake.Shake();
+            if (countdownBar != null) countdownBar.ApplyPenalty(penaltyAmount);
             if (playerScript != null) playerScript.PlayWrongAnimation();
             onPaused.Invoke();
             return;

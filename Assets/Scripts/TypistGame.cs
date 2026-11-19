@@ -57,9 +57,18 @@ public class TypistGame : MonoBehaviour
     public GameManager gameManager;
     [Tooltip("Player GameObject. Its PlayerScript component is fetched at runtime and PlayWrongAnimation() is called on every typo.")]
     public GameObject player;
+    [Tooltip("ScreenShake script reference. Shake() is called on every typo (uses ScreenShake's Default Settings).")]
+    public ScreenShake screenShake;
+    [Tooltip("CountdownBar GameObject. Its CountdownBar component is fetched at runtime and ApplyPenalty(countdownPenalty) is called on every typo.")]
+    public GameObject countdownBar;
+    [Tooltip("Value passed to CountdownBar.ApplyPenalty() on every typo.")]
+    public float countdownPenalty = 1f;
 
     // PlayerScript fetched from the Player GameObject
     private PlayerScript playerScript;
+
+    // CountdownBar component fetched from the CountdownBar GameObject
+    private CountdownBar countdownBarScript;
 
     // Internal state variables
     private string currentTargetText = "";
@@ -105,6 +114,16 @@ public class TypistGame : MonoBehaviour
             if (playerScript == null)
             {
                 Debug.LogWarning("TypistGame: PlayerScript was not found on the Player GameObject.", player);
+            }
+        }
+
+        // Get the CountdownBar component from the CountdownBar GameObject
+        if (countdownBar != null)
+        {
+            countdownBarScript = countdownBar.GetComponent<CountdownBar>();
+            if (countdownBarScript == null)
+            {
+                Debug.LogWarning("TypistGame: CountdownBar script was not found on the CountdownBar GameObject.", countdownBar);
             }
         }
     }
@@ -323,6 +342,18 @@ public class TypistGame : MonoBehaviour
         if (playerScript != null)
         {
             playerScript.PlayWrongAnimation();
+        }
+
+        // Shake the camera and UI
+        if (screenShake != null)
+        {
+            screenShake.Shake();
+        }
+
+        // Apply the time penalty on the countdown bar
+        if (countdownBarScript != null)
+        {
+            countdownBarScript.ApplyPenalty(countdownPenalty);
         }
     }
 
