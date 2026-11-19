@@ -23,6 +23,18 @@ public class CountdownBar : MonoBehaviour
     public enum SwitchEffect { None, Punch, PopIn, Flash, Shake }
     public enum LoopEffect { None, Pulse, Blink, Shake, Bounce }
 
+    /// <summary>Penalty effects can be combined (pick several in the Inspector dropdown)</summary>
+    [System.Flags]
+    public enum PenaltyEffect
+    {
+        None = 0,
+        Shake = 1 << 0,      // Shake the bar (or the Penalty Shake Target)
+        Punch = 1 << 1,      // Quick scale punch
+        Blink = 1 << 2,      // Blinks twice
+        TintFlash = 1 << 3,  // Bar briefly flashes the Penalty Tint Color
+        Trail = 1 << 4,      // The lost section stays visible for a moment, then shrinks away
+    }
+
     [Header("Bars (UI Images, placed on top of each other)")]
     [Tooltip("Bar shown while there is plenty of time left")]
     public Image normalBar;
@@ -75,6 +87,26 @@ public class CountdownBar : MonoBehaviour
     [Tooltip("Blink: lowest alpha")]
     [Range(0f, 1f)] public float blinkMinAlpha = 0.3f;
 
+    [Header("Penalty (call ApplyPenalty() when the player makes a mistake)")]
+    [Tooltip("Seconds removed each time ApplyPenalty() is called")]
+    public float penaltySeconds = 3f;
+    [Tooltip("Visual effects played on a penalty. You can tick several")]
+    public PenaltyEffect penaltyEffects = PenaltyEffect.Shake | PenaltyEffect.TintFlash | PenaltyEffect.Trail;
+    [Tooltip("Bar drops to its new length instantly. Off = it slides down at Catch Up Speed")]
+    public bool penaltyInstantDrop = true;
+    [Tooltip("Duration of the Shake / Punch / Blink / TintFlash effects")]
+    public float penaltyEffectDuration = 0.35f;
+    [Tooltip("Object shaken by the Shake effect, e.g. the parent of the bars. Empty = only the bar shakes")]
+    public RectTransform penaltyShakeTarget;
+    [Tooltip("Colour the bar flashes with TintFlash")]
+    public Color penaltyTintColor = Color.white;
+    [Tooltip("Colour of the lost section shown by Trail")]
+    public Color trailColor = new Color(1f, 0.25f, 0.25f, 0.85f);
+    [Tooltip("Trail: how long the lost section stays before shrinking")]
+    public float trailDelay = 0.3f;
+    [Tooltip("Trail: how long the lost section takes to shrink away")]
+    public float trailShrinkDuration = 0.4f;
+
     [Header("Effect Strength (pixels)")]
     [Tooltip("Distance used by Bounce")]
     public float moveDistance = 8f;
@@ -88,6 +120,8 @@ public class CountdownBar : MonoBehaviour
     public UnityEvent onEnterYellow;
     [Tooltip("Invoked when the bar turns red")]
     public UnityEvent onEnterRed;
+    [Tooltip("Invoked every time a penalty is applied (e.g. play a sound)")]
+    public UnityEvent onPenalty;
     [Tooltip("Invoked when time runs out")]
     public UnityEvent onTimeUp;
 
@@ -96,6 +130,15 @@ public class CountdownBar : MonoBehaviour
     private readonly BarVisual[] barsByState = new BarVisual[3];
     private readonly List<BarVisual> uniqueBars = new List<BarVisual>();
     private readonly object fillTweenId = new object();
+    private readonly object trailTweenId = new object();
+    private readonly object tintTweenId = new object();
+    private readonly object shakeTweenId = new object();
+
+    private Image trailImage;
+    private RectTransform trailRt;
+    private float trailWidth;
+    private float trailFill;
+    private Vector3 shakeTargetBasePos;
 
     private float timeLeft;
     private float displayFill = 1f;
@@ -149,6 +192,9 @@ public class CountdownBar : MonoBehaviour
         barsByState[(int)BarState.Yellow] = yellow;
         barsByState[(int)BarState.Red] = red;
 
+        CreateTrail();
+        if (penaltyShakeTarget != null) shakeTargetBasePos = penaltyShakeTarget.localPosition;
+
         valid = true;
         ResetTimer();
     }
@@ -193,16 +239,21 @@ public class CountdownBar : MonoBehaviour
         UpdateState(true);
         UpdateDisplay(dt);
 
-        if (timeUpNow)
-        {
-            onTimeUp?.Invoke();
-            if (gameManager != null) gameManager.GameOver();
-        }
+        if (timeUpNow) TriggerTimeUp();
+    }
+
+    void TriggerTimeUp()
+    {
+        onTimeUp?.Invoke();
+        if (gameManager != null) gameManager.GameOver();
     }
 
     void OnDestroy()
     {
         DOTween.Kill(fillTweenId);
+        DOTween.Kill(trailTweenId);
+        DOTween.Kill(tintTweenId);
+        DOTween.Kill(shakeTweenId);
         foreach (var b in uniqueBars) b.Kill();
     }
 
@@ -232,6 +283,7 @@ public class CountdownBar : MonoBehaviour
         timeLeft = totalTime;
 
         DOTween.Kill(fillTweenId);
+        StopPenaltyEffects();
         SetState(ComputeState(), false);
         displayFill = 1f;
         ApplyFill();
@@ -250,6 +302,38 @@ public class CountdownBar : MonoBehaviour
     {
         timeLeft = Mathf.Clamp(timeLeft + seconds, 0f, totalTime);
         if (valid) UpdateState(true);
+    }
+
+    /// <summary>Remove Penalty Seconds from the bar and play the penalty effects. Call this when the player makes a mistake</summary>
+    public void ApplyPenalty() => ApplyPenalty(penaltySeconds);
+
+    /// <summary>Remove a custom number of seconds from the bar and play the penalty effects</summary>
+    public void ApplyPenalty(float seconds)
+    {
+        Initialize();
+        if (!valid || seconds <= 0f || timeLeft <= 0f) return;
+        if (gameManager != null && gameManager.IsFinished) return;
+
+        float oldFill = displayFill;
+        timeLeft = Mathf.Max(0f, timeLeft - seconds);
+
+        DOTween.Kill(fillTweenId); // stop the intro fill-up if it is still playing
+        if (penaltyInstantDrop)
+        {
+            displayFill = TargetFill;
+            ApplyFill();
+        }
+
+        UpdateState(true);
+        PlayPenaltyEffects(oldFill);
+        onPenalty?.Invoke();
+
+        // The penalty itself can end the game
+        if (timeLeft <= 0f && running)
+        {
+            running = false;
+            TriggerTimeUp();
+        }
     }
 
     // ===== Core logic =====
@@ -431,6 +515,146 @@ public class CountdownBar : MonoBehaviour
         if (t != null) t.SetId(v.go).SetUpdate(useUnscaledTime);
     }
 
+    // ===== Penalty effects =====
+
+    bool HasPenalty(PenaltyEffect e) => (penaltyEffects & e) != 0;
+
+    void PlayPenaltyEffects(float oldFill)
+    {
+        BarVisual v = barsByState[(int)state];
+        BarState s = state;
+        float d = penaltyEffectDuration;
+
+        // Effects on the bar itself (these replace the colour-switch effect if the penalty also changed the colour)
+        bool shakeBar = HasPenalty(PenaltyEffect.Shake) && penaltyShakeTarget == null;
+        bool punch = HasPenalty(PenaltyEffect.Punch);
+        bool blink = HasPenalty(PenaltyEffect.Blink);
+
+        if (shakeBar || punch || blink)
+        {
+            v.Kill();
+            v.ResetVisual();
+
+            Sequence seq = NewSequence(v.go);
+            if (shakeBar) seq.Insert(0f, v.rt.DOShakePosition(d, shakeStrength, 25));
+            if (punch) seq.Insert(0f, v.rt.DOPunchScale(Vector3.one * punchStrength, d, 8, 0.5f));
+            if (blink)
+            {
+                float step = d / 4f;
+                seq.Insert(0f, FadeTo(v, 0.2f, step));
+                seq.Insert(step, FadeTo(v, 1f, step));
+                seq.Insert(step * 2f, FadeTo(v, 0.2f, step));
+                seq.Insert(step * 3f, FadeTo(v, 1f, step));
+            }
+            seq.OnComplete(() =>
+            {
+                v.ResetVisual();
+                StartLoop(v, s);
+            });
+        }
+
+        // Shake a separate target (e.g. the whole bar frame)
+        if (HasPenalty(PenaltyEffect.Shake) && penaltyShakeTarget != null)
+        {
+            DOTween.Kill(shakeTweenId);
+            penaltyShakeTarget.localPosition = shakeTargetBasePos;
+            penaltyShakeTarget.DOShakePosition(d, shakeStrength, 25)
+                .SetId(shakeTweenId)
+                .SetUpdate(useUnscaledTime)
+                .OnComplete(() => penaltyShakeTarget.localPosition = shakeTargetBasePos);
+        }
+
+        // Flash the bar's colour, keeping its alpha
+        if (HasPenalty(PenaltyEffect.TintFlash))
+        {
+            DOTween.Kill(tintTweenId);
+            Image img = v.image;
+            Color baseColor = v.baseColor;
+            float t = 0f;
+            DOTween.To(() => t, x =>
+            {
+                t = x;
+                Color c = Color.Lerp(baseColor, penaltyTintColor, x);
+                c.a = img.color.a;
+                img.color = c;
+            }, 1f, d * 0.5f)
+                .SetEase(Ease.OutQuad)
+                .SetLoops(2, LoopType.Yoyo)
+                .SetId(tintTweenId)
+                .SetUpdate(useUnscaledTime);
+        }
+
+        // Show the lost section behind the bar, then shrink it away
+        if (HasPenalty(PenaltyEffect.Trail) && trailImage != null)
+        {
+            float start = trailImage.gameObject.activeSelf ? Mathf.Max(trailFill, oldFill) : oldFill;
+            DOTween.Kill(trailTweenId);
+
+            trailFill = start;
+            SetTrailFill(start);
+            trailImage.gameObject.SetActive(true);
+
+            DOTween.Sequence()
+                .SetId(trailTweenId)
+                .SetUpdate(useUnscaledTime)
+                .AppendInterval(trailDelay)
+                .Append(DOTween.To(() => trailFill, x => { trailFill = x; SetTrailFill(x); }, TargetFill, trailShrinkDuration)
+                    .SetEase(Ease.InQuad))
+                .OnComplete(() => trailImage.gameObject.SetActive(false));
+        }
+    }
+
+    void StopPenaltyEffects()
+    {
+        DOTween.Kill(trailTweenId);
+        DOTween.Kill(tintTweenId);
+        DOTween.Kill(shakeTweenId);
+        if (trailImage != null) trailImage.gameObject.SetActive(false);
+        if (penaltyShakeTarget != null) penaltyShakeTarget.localPosition = shakeTargetBasePos;
+    }
+
+    /// <summary>Creates the trail image used by the Trail penalty effect: a copy of the normal bar's shape, placed behind the bars</summary>
+    void CreateTrail()
+    {
+        RectTransform src = normalBar.rectTransform;
+
+        var go = new GameObject("PenaltyTrail", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        trailRt = go.GetComponent<RectTransform>();
+        trailRt.SetParent(src.parent, false);
+        trailRt.anchorMin = src.anchorMin;
+        trailRt.anchorMax = src.anchorMax;
+        trailRt.pivot = src.pivot;
+        trailRt.anchoredPosition = src.anchoredPosition;
+        trailRt.sizeDelta = src.sizeDelta;
+        trailRt.localScale = src.localScale;
+        trailRt.localRotation = src.localRotation;
+        trailWidth = src.rect.width;
+
+        trailImage = go.GetComponent<Image>();
+        trailImage.sprite = normalBar.sprite;
+        trailImage.type = normalBar.type;
+        trailImage.fillMethod = normalBar.fillMethod;
+        trailImage.fillOrigin = normalBar.fillOrigin;
+        trailImage.pixelsPerUnitMultiplier = normalBar.pixelsPerUnitMultiplier;
+        trailImage.color = trailColor;
+        trailImage.raycastTarget = false;
+
+        // Put it behind every bar that shares the same parent
+        int index = src.GetSiblingIndex();
+        foreach (var b in uniqueBars)
+            if (b.rt.parent == src.parent) index = Mathf.Min(index, b.rt.GetSiblingIndex());
+        trailRt.SetSiblingIndex(index);
+
+        go.SetActive(false);
+    }
+
+    void SetTrailFill(float fill)
+    {
+        fill = Mathf.Clamp01(fill);
+        if (shrinkMode == ShrinkMode.Fill) trailImage.fillAmount = fill;
+        else trailRt.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, trailWidth * fill);
+    }
+
     // ===== Helpers =====
 
     Sequence NewSequence(GameObject id)
@@ -462,6 +686,7 @@ public class CountdownBar : MonoBehaviour
         public readonly Vector3 scale;
         public readonly Quaternion rot;
         public readonly float width;
+        public readonly Color baseColor;
         public readonly AlphaGroup alpha;
 
         public BarVisual(Image image, ShrinkMode mode)
@@ -488,6 +713,7 @@ public class CountdownBar : MonoBehaviour
             pos = rt.localPosition;
             scale = rt.localScale;
             rot = rt.localRotation;
+            baseColor = image.color;
             alpha = new AlphaGroup(go);
         }
 
@@ -505,6 +731,7 @@ public class CountdownBar : MonoBehaviour
             rt.localPosition = pos;
             rt.localScale = scale;
             rt.localRotation = rot;
+            image.color = baseColor;
             alpha.Set(1f);
         }
     }
