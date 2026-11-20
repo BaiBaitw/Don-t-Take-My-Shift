@@ -47243,13 +47243,14 @@ MonoBehaviour:
   timeManager: {fileID: 1231106104}
   playerObject: {fileID: 915582420}
   nextQuestionDelay: 0.35
-  increaseDifficultyEvery: 2
+  increaseDifficultyEvery: 6
   scoreUI: {fileID: 1231257839}
   scoreFormat: '{0}'
   scorePerClear: 200
   feverStreakRequired: 3
   feverMultiplier: 2
   feverEffect: {fileID: 0}
+  feverTimeBonus: 2
   onScoreChanged:
     m_PersistentCalls:
       m_Calls: []
@@ -48202,6 +48203,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 462255677}
     m_Modifications:
+    - target: {fileID: 787318747793537295, guid: c734e01c49f6e7448b663f4038df34ee, type: 3}
+      propertyPath: bonusEffects
+      value: 4
+      objectReference: {fileID: 0}
     - target: {fileID: 787318747793537295, guid: c734e01c49f6e7448b663f4038df34ee, type: 3}
       propertyPath: gameManagerObject
       value: 

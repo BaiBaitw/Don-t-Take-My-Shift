@@ -60,7 +60,7 @@ public class SupermanGameManager : GameManager
         [NonSerialized] public MethodInfo increaseDifficultyMethod;
         [NonSerialized] public Vector3 screenBase;
         [NonSerialized] public Vector2 uiBase;
-        [NonSerialized] public int clearCount;
+        [NonSerialized] public int pendingDifficulty;   // IncreaseDifficulty() calls waiting for this level's next StartGame()
         [NonSerialized] public bool redboxWasActive;
 
         public bool IsValid => gameScript != null && startGameMethod != null;
@@ -102,7 +102,7 @@ public class SupermanGameManager : GameManager
     [SerializeField] private GameObject playerObject;
     [Tooltip("Seconds between finishing a question and the next question / slide. Keep it above FactoryManager's Effect Duration (0.25)")]
     [SerializeField] private float nextQuestionDelay = 0.35f;
-    [Tooltip("Call a level's IncreaseDifficulty() every N clears of THAT level (0 = never)")]
+    [Tooltip("Every N clears in total (all levels added together), ALL six levels get IncreaseDifficulty() once (0 = never)")]
     [SerializeField] private int increaseDifficultyEvery = 2;
 
     [Header("Score")]
@@ -120,6 +120,8 @@ public class SupermanGameManager : GameManager
     [SerializeField] private float feverMultiplier = 2f;
     [Tooltip("Optional: shown while Fever is on")]
     [SerializeField] private GameObject feverEffect;
+    [Tooltip("Seconds added to the countdown bar for each clear while Fever is on (0 = none)")]
+    [SerializeField] private float feverTimeBonus = 2f;
 
     [Header("Events")]
     [SerializeField] private IntEvent onScoreChanged = new IntEvent();
@@ -136,6 +138,7 @@ public class SupermanGameManager : GameManager
 
     private readonly List<int> validLevels = new List<int>();
     private int currentLevel = -1;
+    private CountdownBar countdown;
     private int streak;
     private bool mistakeThisClear;
     private Coroutine flowRoutine;
@@ -144,6 +147,8 @@ public class SupermanGameManager : GameManager
     public int Streak => streak;
     public bool IsFever { get; private set; }
     public int TotalClears { get; private set; }
+    /// <summary>How many times the global difficulty has gone up</summary>
+    public int DifficultyLevel { get; private set; }
     public int CurrentLevelIndex => currentLevel;
     public bool IsSliding { get; private set; }
 
@@ -164,6 +169,13 @@ public class SupermanGameManager : GameManager
         IsGameOver = false;
 
         if (worldCamera == null) worldCamera = Camera.main;
+
+        if (timeManager != null)
+        {
+            countdown = timeManager.GetComponent<CountdownBar>();
+            if (countdown == null)
+                Debug.LogWarning("[SupermanGameManager] Time Manager has no CountdownBar; Fever time bonus will not work.", this);
+        }
         if (worldCamera != null && !worldCamera.orthographic)
             Debug.LogWarning("[SupermanGameManager] Camera is not orthographic; world and UI may not slide in sync.", this);
 
@@ -231,6 +243,7 @@ public class SupermanGameManager : GameManager
 
         Score = 0;
         TotalClears = 0;
+        DifficultyLevel = 0;
         streak = 0;
         mistakeThisClear = false;
         SetFever(false);
@@ -257,6 +270,10 @@ public class SupermanGameManager : GameManager
         float mult = IsFever ? feverMultiplier : 1f;
         AddScore(Mathf.RoundToInt(scorePerClear * mult));
 
+        // Fever time bonus (also only if Fever was already on)
+        if (IsFever && feverTimeBonus > 0f && countdown != null)
+            countdown.AddBonusTime(feverTimeBonus);   // plays the green bonus effect
+
         // Streak / Fever
         if (!mistakeThisClear)
         {
@@ -266,11 +283,15 @@ public class SupermanGameManager : GameManager
         }
         mistakeThisClear = false;
 
-        // Difficulty for this level
-        SupermanLevel lv = levels[currentLevel];
-        lv.clearCount++;
-        if (increaseDifficultyEvery > 0 && lv.clearCount % increaseDifficultyEvery == 0)
-            CallMethod(lv, lv.increaseDifficultyMethod);
+        // Difficulty: every N clears in total, all levels go up one step.
+        // Queued per level and applied right before that level's next StartGame(),
+        // because a level that was never shown hasn't run Awake() yet
+        // (ScamManager's Awake() would reset its difficulty).
+        if (increaseDifficultyEvery > 0 && TotalClears % increaseDifficultyEvery == 0)
+        {
+            DifficultyLevel++;
+            foreach (int i in validLevels) levels[i].pendingDifficulty++;
+        }
 
         if (flowRoutine != null) StopCoroutine(flowRoutine);
         flowRoutine = StartCoroutine(NextRoundRoutine());
@@ -405,6 +426,13 @@ public class SupermanGameManager : GameManager
         currentLevel = index;
         lv.redboxWasActive = lv.errorRedbox != null && lv.errorRedbox.activeSelf;
         phase = Phase.Playing;
+
+        // Apply difficulty steps earned since this level was last played
+        while (lv.pendingDifficulty > 0)
+        {
+            lv.pendingDifficulty--;
+            CallMethod(lv, lv.increaseDifficultyMethod);
+        }
 
         CallMethod(lv, lv.startGameMethod);
     }
@@ -622,7 +650,7 @@ public class SupermanGameManagerEditor : Editor
         }
 
         EditorGUILayout.LabelField(
-            $"Level: {gm.CurrentLevelIndex}   Score: {gm.Score}   Streak: {gm.Streak}   Fever: {gm.IsFever}   Sliding: {gm.IsSliding}");
+            $"Level: {gm.CurrentLevelIndex}   Diff: {gm.DifficultyLevel}   Score: {gm.Score}   Streak: {gm.Streak}   Fever: {gm.IsFever}   Sliding: {gm.IsSliding}");
 
         EditorGUILayout.BeginHorizontal();
         if (GUILayout.Button("Start")) gm.StartSuperman();

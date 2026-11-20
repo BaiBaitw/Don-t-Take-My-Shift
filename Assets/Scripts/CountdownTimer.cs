@@ -35,6 +35,17 @@ public class CountdownBar : MonoBehaviour
         Trail = 1 << 4,      // The lost section stays visible for a moment, then shrinks away
     }
 
+    /// <summary>Bonus effects for AddBonusTime(); can be combined</summary>
+    [System.Flags]
+    public enum BonusEffect
+    {
+        None = 0,
+        TintFlash = 1 << 0,    // Bar briefly flashes the Bonus Tint Color
+        Punch = 1 << 1,        // Quick scale punch
+        GainSection = 1 << 2,  // The gained section appears in Gain Color first, then the bar grows over it
+        Blink = 1 << 3,        // Blinks twice
+    }
+
     [Header("Bars (UI Images, placed on top of each other)")]
     [Tooltip("Bar shown while there is plenty of time left")]
     public Image normalBar;
@@ -107,6 +118,20 @@ public class CountdownBar : MonoBehaviour
     [Tooltip("Trail: how long the lost section takes to shrink away")]
     public float trailShrinkDuration = 0.4f;
 
+    [Header("Bonus (call AddBonusTime() to add time with effects)")]
+    [Tooltip("Visual effects played when time is added with AddBonusTime(). You can tick several")]
+    public BonusEffect bonusEffects = BonusEffect.TintFlash | BonusEffect.Punch | BonusEffect.GainSection;
+    [Tooltip("Colour the bar flashes with TintFlash")]
+    public Color bonusTintColor = new Color(0.35f, 1f, 0.45f, 1f);
+    [Tooltip("Colour of the gained section shown by GainSection")]
+    public Color gainColor = new Color(0.35f, 1f, 0.45f, 0.9f);
+    [Tooltip("Duration of the TintFlash / Punch / Blink bonus effects")]
+    public float bonusEffectDuration = 0.4f;
+    [Tooltip("GainSection: how long the gained section is shown before the bar grows")]
+    public float gainHoldTime = 0.15f;
+    [Tooltip("GainSection: how long the bar takes to grow over the gained section")]
+    public float gainFillDuration = 0.4f;
+
     [Header("Effect Strength (pixels)")]
     [Tooltip("Distance used by Bounce")]
     public float moveDistance = 8f;
@@ -124,6 +149,8 @@ public class CountdownBar : MonoBehaviour
     public UnityEvent onPenalty;
     [Tooltip("Invoked when time runs out")]
     public UnityEvent onTimeUp;
+    [Tooltip("Invoked every time AddBonusTime() adds time (e.g. play a sound)")]
+    public UnityEvent onBonusTime;
 
     // ===== Runtime state =====
 
@@ -133,6 +160,10 @@ public class CountdownBar : MonoBehaviour
     private readonly object trailTweenId = new object();
     private readonly object tintTweenId = new object();
     private readonly object shakeTweenId = new object();
+
+    private Image gainImage;
+    private RectTransform gainRt;
+    private float gainWidth;
 
     private Image trailImage;
     private RectTransform trailRt;
@@ -302,6 +333,21 @@ public class CountdownBar : MonoBehaviour
     {
         timeLeft = Mathf.Clamp(timeLeft + seconds, 0f, totalTime);
         if (valid) UpdateState(true);
+    }
+
+    /// <summary>Add time and play the bonus effects (e.g. Fever reward)</summary>
+    public void AddBonusTime(float seconds)
+    {
+        Initialize();
+        if (!valid || seconds <= 0f || timeLeft <= 0f) return;
+
+        float oldFill = displayFill;
+        timeLeft = Mathf.Clamp(timeLeft + seconds, 0f, totalTime);
+
+        DOTween.Kill(fillTweenId); // stop the intro / previous gain fill if still playing
+        UpdateState(true);
+        PlayBonusEffects(oldFill);
+        onBonusTime?.Invoke();
     }
 
     /// <summary>Remove Penalty Seconds from the bar and play the penalty effects. Call this when the player makes a mistake</summary>
@@ -565,28 +611,12 @@ public class CountdownBar : MonoBehaviour
         }
 
         // Flash the bar's colour, keeping its alpha
-        if (HasPenalty(PenaltyEffect.TintFlash))
-        {
-            DOTween.Kill(tintTweenId);
-            Image img = v.image;
-            Color baseColor = v.baseColor;
-            float t = 0f;
-            DOTween.To(() => t, x =>
-            {
-                t = x;
-                Color c = Color.Lerp(baseColor, penaltyTintColor, x);
-                c.a = img.color.a;
-                img.color = c;
-            }, 1f, d * 0.5f)
-                .SetEase(Ease.OutQuad)
-                .SetLoops(2, LoopType.Yoyo)
-                .SetId(tintTweenId)
-                .SetUpdate(useUnscaledTime);
-        }
+        if (HasPenalty(PenaltyEffect.TintFlash)) FlashTint(v, penaltyTintColor, d);
 
         // Show the lost section behind the bar, then shrink it away
         if (HasPenalty(PenaltyEffect.Trail) && trailImage != null)
         {
+            if (gainImage != null) { DOTween.Kill(gainImage); gainImage.gameObject.SetActive(false); }
             float start = trailImage.gameObject.activeSelf ? Mathf.Max(trailFill, oldFill) : oldFill;
             DOTween.Kill(trailTweenId);
 
@@ -610,49 +640,144 @@ public class CountdownBar : MonoBehaviour
         DOTween.Kill(tintTweenId);
         DOTween.Kill(shakeTweenId);
         if (trailImage != null) trailImage.gameObject.SetActive(false);
+        if (gainImage != null) gainImage.gameObject.SetActive(false);
         if (penaltyShakeTarget != null) penaltyShakeTarget.localPosition = shakeTargetBasePos;
+    }
+
+    // ===== Bonus effects =====
+
+    bool HasBonus(BonusEffect e) => (bonusEffects & e) != 0;
+
+    void PlayBonusEffects(float oldFill)
+    {
+        BarVisual v = barsByState[(int)state];
+        BarState s = state;
+        float d = bonusEffectDuration;
+
+        bool punch = HasBonus(BonusEffect.Punch);
+        bool blink = HasBonus(BonusEffect.Blink);
+        if (punch || blink)
+        {
+            v.Kill();
+            v.ResetVisual();
+
+            Sequence seq = NewSequence(v.go);
+            if (punch) seq.Insert(0f, v.rt.DOPunchScale(Vector3.one * punchStrength, d, 8, 0.5f));
+            if (blink)
+            {
+                float step = d / 4f;
+                seq.Insert(0f, FadeTo(v, 0.4f, step));
+                seq.Insert(step, FadeTo(v, 1f, step));
+                seq.Insert(step * 2f, FadeTo(v, 0.4f, step));
+                seq.Insert(step * 3f, FadeTo(v, 1f, step));
+            }
+            seq.OnComplete(() =>
+            {
+                v.ResetVisual();
+                StartLoop(v, s);
+            });
+        }
+
+        if (HasBonus(BonusEffect.TintFlash)) FlashTint(v, bonusTintColor, d);
+
+        // Show the gained section in Gain Color behind the bar, then grow the bar over it
+        float target = TargetFill;
+        if (HasBonus(BonusEffect.GainSection) && gainImage != null && target > oldFill + 0.001f)
+        {
+            // A penalty trail would sit on top of the gain section; hide it
+            DOTween.Kill(trailTweenId);
+            if (trailImage != null) trailImage.gameObject.SetActive(false);
+
+            DOTween.Kill(gainImage);
+            gainImage.color = gainColor;
+            SetBackFill(gainImage, gainRt, gainWidth, target);
+            gainImage.gameObject.SetActive(true);
+
+            displayFill = oldFill;
+            ApplyFill();
+
+            // Uses fillTweenId so UpdateDisplay() leaves the length alone while it plays.
+            // OnKill also runs if a penalty / reset interrupts it, so the gain image never stays stuck.
+            DOTween.Sequence()
+                .SetId(fillTweenId)
+                .SetUpdate(useUnscaledTime)
+                .AppendInterval(gainHoldTime)
+                .Append(DOTween.To(() => displayFill, x => { displayFill = x; ApplyFill(); }, target, gainFillDuration)
+                    .SetEase(Ease.OutCubic))
+                .OnKill(() => { if (gainImage != null) gainImage.gameObject.SetActive(false); });
+        }
+    }
+
+    /// <summary>Flashes the bar towards a colour and back, keeping its alpha</summary>
+    void FlashTint(BarVisual v, Color tint, float d)
+    {
+        DOTween.Kill(tintTweenId);
+        Image img = v.image;
+        Color baseColor = v.baseColor;
+        float t = 0f;
+        DOTween.To(() => t, x =>
+        {
+            t = x;
+            Color c = Color.Lerp(baseColor, tint, x);
+            c.a = img.color.a;
+            img.color = c;
+        }, 1f, d * 0.5f)
+            .SetEase(Ease.OutQuad)
+            .SetLoops(2, LoopType.Yoyo)
+            .SetId(tintTweenId)
+            .SetUpdate(useUnscaledTime);
     }
 
     /// <summary>Creates the trail image used by the Trail penalty effect: a copy of the normal bar's shape, placed behind the bars</summary>
     void CreateTrail()
     {
+        trailImage = CreateBackImage("PenaltyTrail", trailColor, out trailRt, out trailWidth);
+        gainImage = CreateBackImage("BonusGain", gainColor, out gainRt, out gainWidth);
+    }
+
+    /// <summary>Creates a copy of the normal bar's shape, placed behind the bars (used by Trail and GainSection)</summary>
+    Image CreateBackImage(string objName, Color color, out RectTransform rt, out float width)
+    {
         RectTransform src = normalBar.rectTransform;
 
-        var go = new GameObject("PenaltyTrail", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        trailRt = go.GetComponent<RectTransform>();
-        trailRt.SetParent(src.parent, false);
-        trailRt.anchorMin = src.anchorMin;
-        trailRt.anchorMax = src.anchorMax;
-        trailRt.pivot = src.pivot;
-        trailRt.anchoredPosition = src.anchoredPosition;
-        trailRt.sizeDelta = src.sizeDelta;
-        trailRt.localScale = src.localScale;
-        trailRt.localRotation = src.localRotation;
-        trailWidth = src.rect.width;
+        var go = new GameObject(objName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        rt = go.GetComponent<RectTransform>();
+        rt.SetParent(src.parent, false);
+        rt.anchorMin = src.anchorMin;
+        rt.anchorMax = src.anchorMax;
+        rt.pivot = src.pivot;
+        rt.anchoredPosition = src.anchoredPosition;
+        rt.sizeDelta = src.sizeDelta;
+        rt.localScale = src.localScale;
+        rt.localRotation = src.localRotation;
+        width = src.rect.width;
 
-        trailImage = go.GetComponent<Image>();
-        trailImage.sprite = normalBar.sprite;
-        trailImage.type = normalBar.type;
-        trailImage.fillMethod = normalBar.fillMethod;
-        trailImage.fillOrigin = normalBar.fillOrigin;
-        trailImage.pixelsPerUnitMultiplier = normalBar.pixelsPerUnitMultiplier;
-        trailImage.color = trailColor;
-        trailImage.raycastTarget = false;
+        Image img = go.GetComponent<Image>();
+        img.sprite = normalBar.sprite;
+        img.type = normalBar.type;
+        img.fillMethod = normalBar.fillMethod;
+        img.fillOrigin = normalBar.fillOrigin;
+        img.pixelsPerUnitMultiplier = normalBar.pixelsPerUnitMultiplier;
+        img.color = color;
+        img.raycastTarget = false;
 
         // Put it behind every bar that shares the same parent
         int index = src.GetSiblingIndex();
         foreach (var b in uniqueBars)
             if (b.rt.parent == src.parent) index = Mathf.Min(index, b.rt.GetSiblingIndex());
-        trailRt.SetSiblingIndex(index);
+        rt.SetSiblingIndex(index);
 
         go.SetActive(false);
+        return img;
     }
 
-    void SetTrailFill(float fill)
+    void SetTrailFill(float fill) => SetBackFill(trailImage, trailRt, trailWidth, fill);
+
+    void SetBackFill(Image img, RectTransform rt, float width, float fill)
     {
         fill = Mathf.Clamp01(fill);
-        if (shrinkMode == ShrinkMode.Fill) trailImage.fillAmount = fill;
-        else trailRt.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, trailWidth * fill);
+        if (shrinkMode == ShrinkMode.Fill) img.fillAmount = fill;
+        else rt.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width * fill);
     }
 
     // ===== Helpers =====
