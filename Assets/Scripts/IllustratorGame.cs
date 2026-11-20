@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.UI;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
@@ -13,13 +14,15 @@ using UnityEngine.InputSystem;
 /// pressing on the progress marker again resumes drawing.
 /// A random outline is picked from Path Roots at start, and a different one
 /// is picked each time an outline is completed.
-/// Usage: for each outline, place its vertices (in order) as children of one empty
-/// GameObject, add those GameObjects to Path Roots, and attach this script to any GameObject.
-/// The dashed guide line, the drawn line and the progress marker are created at runtime.
+/// Usage: for each outline, create an empty UI object (RectTransform) under a Canvas and place
+/// its vertices (in order) as UI children; add those objects to Path Roots and attach this
+/// script to any GameObject.
+/// The dashed guide line, the drawn line and the progress marker are created at runtime
+/// as UI Images inside that Canvas, so they can sit above other UI.
 /// </summary>
 public class IllustratorGame : MonoBehaviour
 {
-    [Header("Paths (each element's children are its vertices, in order)")]
+    [Header("Paths (UI objects under a Canvas; each element's children are its vertices, in order)")]
     public Transform[] pathRoots;
     [Tooltip("If checked, the last vertex connects back to the first one to form a closed outline")]
     public bool closedLoop = true;
@@ -35,7 +38,7 @@ public class IllustratorGame : MonoBehaviour
     public GameObject player;
 
     [Header("Detection")]
-    [Tooltip("How close (in world units) the mouse press must be to the progress marker to start drawing")]
+    [Tooltip("How close (in units) the mouse press must be to the progress marker to start drawing")]
     public float resumeRadius = 0.5f;
     [Tooltip("Max distance from the path while dragging; going further pauses drawing")]
     public float pathTolerance = 0.35f;
@@ -68,16 +71,12 @@ public class IllustratorGame : MonoBehaviour
     [Tooltip("Dash density; higher values give denser dashes")]
     public float dashesPerUnit = 4f;
     public float markerSize = 0.35f;
-    [Tooltip("Optional; uses Sprites/Default when empty")]
-    public Material lineMaterial;
 
-    [Header("Sorting")]
-    [Tooltip("Sorting Layer used by the dashed line, the drawn line and the progress marker")]
-    [IllustratorSortingLayer]
-    public string sortingLayer = "Default";
-    public int guideOrderInLayer = 0;
-    public int drawnOrderInLayer = 1;
-    public int markerOrderInLayer = 2;
+    [Header("UI")]
+    [Tooltip("How many canvas units count as 1 unit for every distance setting (Resume Radius, Path Tolerance, Look Ahead, Line Width, Marker Size, Dashes Per Unit)")]
+    public float uiUnitsPerUnit = 100f;
+    [Tooltip("Optional: the UI object the lines are created under (as its last child). Empty = the parent of the first Path Root. Use it to put UI such as the Error Redbox above the lines")]
+    public RectTransform uiLinesParent;
 
     [Header("Events (hook up sounds, UI, etc. in the Inspector)")]
     public UnityEvent onStartDrawing = new UnityEvent();
@@ -87,7 +86,7 @@ public class IllustratorGame : MonoBehaviour
 
     // Runtime data
     readonly List<Vector2> pts = new List<Vector2>();
-    readonly List<Vector3> drawnBuffer = new List<Vector3>();
+    readonly List<Vector2> drawnBuffer = new List<Vector2>();
     readonly List<int> validPaths = new List<int>();
     float[] cum = new float[0];   // cumulative path length at each vertex
     float total;                  // total path length
@@ -97,10 +96,14 @@ public class IllustratorGame : MonoBehaviour
     int currentIndex = -1;
     Vector2 lastMouse;
 
-    LineRenderer guideLine, drawnLine;
-    Transform marker;
-    SpriteRenderer markerRenderer;
-    Camera cam;
+    // Visuals
+    Canvas uiCanvas;
+    RectTransform uiContainer;
+    UIImageLine uiGuide, uiDrawn;
+    Image uiMarkerImage;
+    readonly List<Vector2> uiBuffer = new List<Vector2>();
+    RectTransform marker;
+    Sprite circleSprite;
     Coroutine errorRoutine;
     Coroutine nextRoutine;
     GameManager gm;
@@ -127,27 +130,28 @@ public class IllustratorGame : MonoBehaviour
 
     void Awake()
     {
-        cam = Camera.main;
-
         for (int i = 0; i < pathRoots.Length; i++)
         {
-            if (pathRoots[i] != null && pathRoots[i].childCount >= 2) validPaths.Add(i);
-            else Debug.LogWarning($"IllustratorGame: Path Roots element {i} is empty or has fewer than 2 child vertices and will be skipped.");
+            Transform root = pathRoots[i];
+            if (root == null || root.childCount < 2)
+                Debug.LogWarning($"IllustratorGame: Path Roots element {i} is empty or has fewer than 2 child vertices and will be skipped.");
+            else if (!(root is RectTransform) || root.GetComponentInParent<Canvas>() == null)
+                Debug.LogWarning($"IllustratorGame: Path Roots element {i} ('{root.name}') is not a UI object under a Canvas and will be skipped.");
+            else
+                validPaths.Add(i);
         }
         if (validPaths.Count == 0)
         {
-            Debug.LogError("IllustratorGame: Path Roots needs at least one element with 2 or more child objects as vertices.");
+            Debug.LogError("IllustratorGame: Path Roots needs at least one UI object under a Canvas with 2 or more child objects as vertices.");
             enabled = false;
             return;
         }
 
-        guideLine = CreateLine("GuideLine", guideColor, 0, true);
-        drawnLine = CreateLine("DrawnLine", drawColor, 1, false);
-        marker = CreateMarker();
+        circleSprite = MakeCircleSprite();
+        SetupUI(pathRoots[validPaths[0]]);
+
         ShowErrorRedbox(false);
-        guideLine.positionCount = 0;          // nothing is shown until StartGame()
-        drawnLine.positionCount = 0;
-        marker.gameObject.SetActive(false);
+        marker.gameObject.SetActive(false);   // nothing is shown until StartGame()
 
         if (gameManager != null)
         {
@@ -329,8 +333,12 @@ public class IllustratorGame : MonoBehaviour
         currentIndex = index;
         BuildPath(pathRoots[index]);
 
-        guideLine.positionCount = pts.Count;
-        for (int i = 0; i < pts.Count; i++) guideLine.SetPosition(i, pts[i]);
+        if (total * uiUnitsPerUnit < 100f)
+            Debug.LogWarning($"IllustratorGame: path '{pathRoots[index].name}' is only {total * uiUnitsPerUnit:0} canvas units long, so its lines are too small to see. " +
+                             "UI positions are in pixels: spread the vertices hundreds of units apart (check Pos X / Pos Y in their Rect Transform).");
+
+        ToCanvas(pts, uiBuffer);
+        uiGuide.SetPoints(uiBuffer);
 
         ShowErrorRedbox(false);
         ResetDrawing();
@@ -368,7 +376,7 @@ public class IllustratorGame : MonoBehaviour
     void BuildPath(Transform root)
     {
         pts.Clear();
-        foreach (Transform child in root) pts.Add(child.position);
+        foreach (Transform child in root) pts.Add(ToUnits(child.position));
         if (closedLoop && pts.Count > 2) pts.Add(pts[0]);
 
         cum = new float[pts.Count];
@@ -417,64 +425,77 @@ public class IllustratorGame : MonoBehaviour
         drawnBuffer.Clear();
         for (int i = 0; i < pts.Count && cum[i] < progress; i++) drawnBuffer.Add(pts[i]);
         drawnBuffer.Add(PointAt(progress));
-        drawnLine.positionCount = drawnBuffer.Count;
-        drawnLine.SetPositions(drawnBuffer.ToArray());
-
         Vector2 mp = PointAt(progress);
-        marker.position = new Vector3(mp.x, mp.y, -0.1f);
         marker.gameObject.SetActive(!done);
         // Pulse the marker while not drawing, to show where to resume
         float pulse = drawing ? 1f : 1f + 0.2f * Mathf.Sin(Time.time * 6f);
-        marker.localScale = Vector3.one * markerSize * pulse;
+
+        ToCanvas(drawnBuffer, uiBuffer);
+        uiDrawn.SetPoints(uiBuffer);
+        marker.localPosition = mp * uiUnitsPerUnit;
+        marker.localScale = Vector3.one * pulse;
     }
 
     // Applies the Appearance settings every frame, so changes in the Inspector show up during Play
     void ApplyAppearance()
     {
-        guideLine.widthMultiplier = lineWidth;
-        drawnLine.widthMultiplier = lineWidth;
-        guideLine.startColor = guideLine.endColor = guideColor;
-        drawnLine.startColor = drawnLine.endColor = drawColor;
-        markerRenderer.color = markerColor;
-
-        guideLine.sortingLayerName = sortingLayer;
-        drawnLine.sortingLayerName = sortingLayer;
-        markerRenderer.sortingLayerName = sortingLayer;
-        guideLine.sortingOrder = guideOrderInLayer;
-        drawnLine.sortingOrder = drawnOrderInLayer;
-        markerRenderer.sortingOrder = markerOrderInLayer;
-
-        // Sprites/Default ignores the material's tiling, so the dash density is set on the LineRenderer itself
-#if UNITY_2022_2_OR_NEWER
-        guideLine.textureScale = new Vector2(dashesPerUnit, 1f);
-#endif
-        guideLine.material.mainTextureScale = new Vector2(dashesPerUnit, 1f);
+        float period = uiUnitsPerUnit / Mathf.Max(0.01f, dashesPerUnit);
+        uiGuide.SetStyle(lineWidth * uiUnitsPerUnit, true, period, guideColor);
+        uiDrawn.SetStyle(lineWidth * uiUnitsPerUnit, false, period, drawColor);
+        uiMarkerImage.color = markerColor;
+        marker.sizeDelta = Vector2.one * markerSize * uiUnitsPerUnit;
     }
 
-    LineRenderer CreateLine(string objName, Color color, int order, bool dashed)
+    // ---------- Setup ----------
+
+    void SetupUI(Transform firstRoot)
     {
-        var go = new GameObject(objName);
-        go.transform.SetParent(transform, false);
-        var lr = go.AddComponent<LineRenderer>();
-        lr.useWorldSpace = true;
-        lr.widthMultiplier = lineWidth;
-        lr.numCornerVertices = 4;
-        lr.numCapVertices = dashed ? 0 : 4;
-        lr.startColor = lr.endColor = color;
-        lr.sortingOrder = order;
+        RectTransform parent = uiLinesParent != null ? uiLinesParent : (RectTransform)firstRoot.parent;
 
-        Material mat = lineMaterial != null ? new Material(lineMaterial) : new Material(Shader.Find("Sprites/Default"));
-        if (dashed)
-        {
-            mat.mainTexture = MakeDashTexture();
-            mat.mainTextureScale = new Vector2(dashesPerUnit, 1f);
-            lr.textureMode = LineTextureMode.Tile;
-        }
-        lr.material = mat;
-        return lr;
+        uiContainer = CreateUIChild("IllustratorLines", parent);
+        uiContainer.SetAsLastSibling();   // drawn above the UI that comes before it
+        uiCanvas = uiContainer.GetComponentInParent<Canvas>().rootCanvas;
+
+        uiGuide = new UIImageLine(CreateUIChild("GuideLine", uiContainer), circleSprite);
+        uiDrawn = new UIImageLine(CreateUIChild("DrawnLine", uiContainer), circleSprite);
+
+        RectTransform m = CreateUIChild("ProgressMarker", uiContainer);
+        m.anchorMin = m.anchorMax = new Vector2(0.5f, 0.5f);
+        uiMarkerImage = m.gameObject.AddComponent<Image>();
+        uiMarkerImage.sprite = circleSprite;
+        uiMarkerImage.raycastTarget = false;
+        marker = m;
     }
 
-    Transform CreateMarker()
+    /// <summary>Creates a RectTransform that fills its parent, with the pivot in the middle</summary>
+    static RectTransform CreateUIChild(string objName, RectTransform parent)
+    {
+        var go = new GameObject(objName, typeof(RectTransform));
+        var rt = (RectTransform)go.transform;
+        rt.SetParent(parent, false);
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = rt.offsetMax = Vector2.zero;
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.localScale = Vector3.one;
+        return rt;
+    }
+
+    // ---------- Space conversion ----------
+    // All path math works in "units": canvas units (relative to the lines container) / uiUnitsPerUnit.
+
+    Vector2 ToUnits(Vector3 worldPos)
+    {
+        return (Vector2)uiContainer.InverseTransformPoint(worldPos) / uiUnitsPerUnit;
+    }
+
+    void ToCanvas(List<Vector2> source, List<Vector2> result)
+    {
+        result.Clear();
+        foreach (Vector2 v in source) result.Add(v * uiUnitsPerUnit);
+    }
+
+    static Sprite MakeCircleSprite()
     {
         const int size = 64;
         var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
@@ -486,35 +507,12 @@ public class IllustratorGame : MonoBehaviour
                 tex.SetPixel(x, y, new Color(1, 1, 1, Mathf.Clamp01(r - d)));
             }
         tex.Apply();
-
-        var go = new GameObject("ProgressMarker");
-        go.transform.SetParent(transform, false);
-        var sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
-        sr.color = markerColor;
-        sr.sortingOrder = 2;
-        markerRenderer = sr;
-        return go.transform;
+        return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
     }
 
-    static Texture2D MakeDashTexture()
+    bool ReadMouse(out Vector2 pos, out bool down, out bool held, out bool up)
     {
-        var tex = new Texture2D(8, 2, TextureFormat.RGBA32, false)
-        {
-            wrapMode = TextureWrapMode.Repeat,
-            filterMode = FilterMode.Point
-        };
-        for (int x = 0; x < 8; x++)
-            for (int y = 0; y < 2; y++)
-                tex.SetPixel(x, y, x < 5 ? Color.white : Color.clear);
-        tex.Apply();
-        return tex;
-    }
-
-    bool ReadMouse(out Vector2 world, out bool down, out bool held, out bool up)
-    {
-        world = default; down = held = up = false;
-        if (cam == null) return false;
+        pos = default; down = held = up = false;
         Vector3 sp;
 #if ENABLE_INPUT_SYSTEM
         var mouse = Mouse.current;
@@ -529,8 +527,10 @@ public class IllustratorGame : MonoBehaviour
         held = Input.GetMouseButton(0);
         up = Input.GetMouseButtonUp(0);
 #endif
-        sp.z = -cam.transform.position.z;   // distance from the camera to the z = 0 plane
-        world = cam.ScreenToWorldPoint(sp);
+        Camera uiCam = uiCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : uiCanvas.worldCamera;
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(uiContainer, sp, uiCam, out Vector2 local))
+            return false;
+        pos = local / uiUnitsPerUnit;
         return true;
     }
 
@@ -557,25 +557,121 @@ public class IllustratorGame : MonoBehaviour
     }
 }
 
-/// <summary>Shows a string field as a Sorting Layer dropdown in the Inspector</summary>
-public class IllustratorSortingLayerAttribute : PropertyAttribute { }
-
-#if UNITY_EDITOR
-[UnityEditor.CustomPropertyDrawer(typeof(IllustratorSortingLayerAttribute))]
-public class IllustratorSortingLayerDrawer : UnityEditor.PropertyDrawer
+/// <summary>
+/// Draws a solid or dashed polyline in UI using pooled Image components
+/// (one stretched Image per segment or dash, round Images at the joints).
+/// Points are in the local space of the root RectTransform, in canvas units.
+/// </summary>
+class UIImageLine
 {
-    public override void OnGUI(Rect position, UnityEditor.SerializedProperty property, GUIContent label)
+    const float DashFill = 5f / 8f;   // part of each dash period that is drawn
+
+    readonly RectTransform root;
+    readonly Sprite dotSprite;
+    readonly List<Image> bars = new List<Image>();
+    readonly List<Image> dots = new List<Image>();
+    readonly List<Vector2> points = new List<Vector2>();
+    float width = 8f;
+    bool dashed;
+    float period = 25f;
+    Color color = Color.white;
+    int barCount, dotCount;
+
+    public UIImageLine(RectTransform root, Sprite dotSprite)
     {
-        SortingLayer[] layers = SortingLayer.layers;
-        string[] names = new string[layers.Length];
-        int current = 0;
-        for (int i = 0; i < layers.Length; i++)
+        this.root = root;
+        this.dotSprite = dotSprite;
+    }
+
+    public void SetPoints(List<Vector2> newPoints)
+    {
+        points.Clear();
+        points.AddRange(newPoints);
+        Rebuild();
+    }
+
+    public void SetStyle(float lineWidth, bool isDashed, float dashPeriod, Color lineColor)
+    {
+        dashPeriod = Mathf.Max(0.01f, dashPeriod);
+        if (lineWidth == width && isDashed == dashed && dashPeriod == period && lineColor == color) return;
+        width = lineWidth;
+        dashed = isDashed;
+        period = dashPeriod;
+        color = lineColor;
+        Rebuild();
+    }
+
+    void Rebuild()
+    {
+        barCount = dotCount = 0;
+        if (points.Count >= 2 && width > 0f)
         {
-            names[i] = layers[i].name;
-            if (names[i] == property.stringValue) current = i;
+            if (!dashed)
+            {
+                for (int i = 0; i < points.Count - 1; i++) AddBar(points[i], points[i + 1]);
+                foreach (Vector2 p in points) AddDot(p);   // round joins and caps
+            }
+            else
+            {
+                float onLength = period * DashFill;
+                float distance = 0f;
+                for (int i = 0; i < points.Count - 1; i++)
+                {
+                    Vector2 a = points[i], b = points[i + 1];
+                    float len = Vector2.Distance(a, b);
+                    if (len < 1e-4f) continue;
+                    Vector2 dir = (b - a) / len;
+                    float segStart = distance, segEnd = distance + len;
+                    for (int k = Mathf.FloorToInt(segStart / period); k * period < segEnd; k++)
+                    {
+                        float dashStart = Mathf.Max(segStart, k * period);
+                        float dashEnd = Mathf.Min(segEnd, k * period + onLength);
+                        if (dashEnd > dashStart)
+                            AddBar(a + dir * (dashStart - segStart), a + dir * (dashEnd - segStart));
+                    }
+                    distance = segEnd;
+                }
+            }
         }
-        int selected = UnityEditor.EditorGUI.Popup(position, label.text, current, names);
-        property.stringValue = names[selected];
+        for (int i = barCount; i < bars.Count; i++) bars[i].enabled = false;
+        for (int i = dotCount; i < dots.Count; i++) dots[i].enabled = false;
+    }
+
+    void AddBar(Vector2 a, Vector2 b)
+    {
+        Vector2 d = b - a;
+        float len = d.magnitude;
+        if (len < 1e-3f) return;
+        RectTransform rt = Get(bars, ref barCount, null).rectTransform;
+        rt.localPosition = (a + b) * 0.5f;
+        rt.sizeDelta = new Vector2(len, width);
+        rt.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
+    }
+
+    void AddDot(Vector2 p)
+    {
+        RectTransform rt = Get(dots, ref dotCount, dotSprite).rectTransform;
+        rt.localPosition = p;
+        rt.sizeDelta = Vector2.one * width;
+        rt.localRotation = Quaternion.identity;
+    }
+
+    Image Get(List<Image> pool, ref int count, Sprite sprite)
+    {
+        if (count == pool.Count)
+        {
+            var go = new GameObject(sprite == null ? "Segment" : "Joint", typeof(RectTransform));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(root, false);
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
+            var img = go.AddComponent<Image>();
+            img.sprite = sprite;
+            img.raycastTarget = false;
+            pool.Add(img);
+        }
+        Image result = pool[count++];
+        result.enabled = true;
+        result.color = color;
+        return result;
     }
 }
-#endif

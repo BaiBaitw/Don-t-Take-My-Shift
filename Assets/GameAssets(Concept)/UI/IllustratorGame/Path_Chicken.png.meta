@@ -1,0 +1,650 @@
+fileFormatVersion: 2
+guid: df835299d9dfb604c8c36af1106ca6c0
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 6442970664295088024
+    second: Path_Chicken_0
+  - first:
+      213: 2981696623883730735
+    second: Path_Chicken_1
+  - first:
+      213: -4004946143977712792
+    second: Path_Chicken_2
+  - first:
+      213: 9030919497331821116
+    second: Path_Chicken_3
+  - first:
+      213: -6258239319324128314
+    second: Path_Chicken_4
+  - first:
+      213: -1906145877715421072
+    second: Path_Chicken_5
+  - first:
+      213: -3740428476118924333
+    second: Path_Chicken_6
+  - first:
+      213: 6823275868841321874
+    second: Path_Chicken_7
+  - first:
+      213: 2096914779703826381
+    second: Path_Chicken_8
+  - first:
+      213: -7816637872691101590
+    second: Path_Chicken_9
+  - first:
+      213: -6808941524895653094
+    second: Path_Chicken_10
+  - first:
+      213: -2792992422407747783
+    second: Path_Chicken_11
+  - first:
+      213: 164372798546835202
+    second: Path_Chicken_12
+  - first:
+      213: -4482887000560672114
+    second: Path_Chicken_13
+  - first:
+      213: -5367365544964642100
+    second: Path_Chicken_14
+  - first:
+      213: -5586149789978521273
+    second: Path_Chicken_15
+  - first:
+      213: 4361742803037213486
+    second: Path_Chicken_16
+  - first:
+      213: -1436401339528490409
+    second: Path_Chicken_17
+  - first:
+      213: -5145483007665516988
+    second: Path_Chicken_18
+  - first:
+      213: 6480777051369502998
+    second: Path_Chicken_19
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 1
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Path_Chicken_0
+      rect:
+        serializedVersion: 2
+        x: 22
+        y: 87
+        width: 10
+        height: 18
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 89f329fcea70a6950800000000000000
+      internalID: 6442970664295088024
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Path_Chicken_1
+      rect:
+        serializedVersion: 2
+        x: 104
+        y: 87
+        width: 14
+        height: 20
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f2f329e184d116920800000000000000
+      internalID: 2981696623883730735
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Path_Chicken_2
+      rect:
+        serializedVersion: 2
+        x: 117
+        y: 97
+        width: 12
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 86353af73b29b68c0800000000000000
+      internalID: -4004946143977712792
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Path_Chicken_3
+      rect:
+        serializedVersion: 2
+        x: 127
+        y: 94
+        width: 12
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c3acc995f65445d70800000000000000
+      internalID: 9030919497331821116
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Path_Chicken_4
+      rect:
+        serializedVersion: 2
+        x: 12
+        y: 82
+        width: 8
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6cb8d442f744629a0800000000000000
+      internalID: -6258239319324128314
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Path_Chicken_5
+      rect:
+        serializedVersion: 2
+        x: 30
+        y: 63
+        width: 34
+        height: 30
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 07872b46c620c85e0800000000000000
+      internalID: -1906145877715421072
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Path_Chicken_6
+      rect:
+        serializedVersion: 2
+        x: 137
+        y: 89
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3d30d2d5e14571cc0800000000000000
+      internalID: -3740428476118924333
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Path_Chicken_7
+      rect:
+        serializedVersion: 2
+        x: 142
+        y: 82
+        width: 12
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 29528ce504521be50800000000000000
+      internalID: 6823275868841321874
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Path_Chicken_8
+      rect:
+        serializedVersion: 2
+        x: 17
+        y: 42
+        width: 20
+        height: 46
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: dc75388d1ecb91d10800000000000000
+      internalID: 2096914779703826381
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Path_Chicken_9
+      rect:
+        serializedVersion: 2
+        x: 35
+        y: 29
+        width: 13
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a60c164e449b58390800000000000000
+      internalID: -7816637872691101590
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Path_Chicken_10
+      rect:
+        serializedVersion: 2
+        x: 63
+        y: 62
+        width: 39
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a13203822c7c181a0800000000000000
+      internalID: -6808941524895653094
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Path_Chicken_11
+      rect:
+        serializedVersion: 2
+        x: 99
+        y: 76
+        width: 8
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9374702903c4d39d0800000000000000
+      internalID: -2792992422407747783
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Path_Chicken_12
+      rect:
+        serializedVersion: 2
+        x: 120
+        y: 36
+        width: 8
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 207fe1c7038f74200800000000000000
+      internalID: 164372798546835202
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Path_Chicken_13
+      rect:
+        serializedVersion: 2
+        x: 125
+        y: 47
+        width: 16
+        height: 31
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e826d5b360699c1c0800000000000000
+      internalID: -4482887000560672114
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Path_Chicken_14
+      rect:
+        serializedVersion: 2
+        x: 139
+        y: 71
+        width: 8
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: cca26b079794385b0800000000000000
+      internalID: -5367365544964642100
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Path_Chicken_15
+      rect:
+        serializedVersion: 2
+        x: 47
+        y: 11
+        width: 33
+        height: 20
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 741153adc520a72b0800000000000000
+      internalID: -5586149789978521273
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Path_Chicken_16
+      rect:
+        serializedVersion: 2
+        x: 102
+        y: 15
+        width: 10
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e2356a848f5088c30800000000000000
+      internalID: 4361742803037213486
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Path_Chicken_17
+      rect:
+        serializedVersion: 2
+        x: 111
+        y: 28
+        width: 10
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 75252829790e01ce0800000000000000
+      internalID: -1436401339528490409
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Path_Chicken_18
+      rect:
+        serializedVersion: 2
+        x: 76
+        y: 6
+        width: 23
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 44ec94a67729798b0800000000000000
+      internalID: -5145483007665516988
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Path_Chicken_19
+      rect:
+        serializedVersion: 2
+        x: 95
+        y: 6
+        width: 18
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 619f16f346850f950800000000000000
+      internalID: 6480777051369502998
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      Path_Chicken_0: 6442970664295088024
+      Path_Chicken_1: 2981696623883730735
+      Path_Chicken_10: -6808941524895653094
+      Path_Chicken_11: -2792992422407747783
+      Path_Chicken_12: 164372798546835202
+      Path_Chicken_13: -4482887000560672114
+      Path_Chicken_14: -5367365544964642100
+      Path_Chicken_15: -5586149789978521273
+      Path_Chicken_16: 4361742803037213486
+      Path_Chicken_17: -1436401339528490409
+      Path_Chicken_18: -5145483007665516988
+      Path_Chicken_19: 6480777051369502998
+      Path_Chicken_2: -4004946143977712792
+      Path_Chicken_3: 9030919497331821116
+      Path_Chicken_4: -6258239319324128314
+      Path_Chicken_5: -1906145877715421072
+      Path_Chicken_6: -3740428476118924333
+      Path_Chicken_7: 6823275868841321874
+      Path_Chicken_8: 2096914779703826381
+      Path_Chicken_9: -7816637872691101590
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
