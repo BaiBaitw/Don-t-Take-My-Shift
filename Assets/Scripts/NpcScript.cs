@@ -52,6 +52,10 @@ public class NpcScript : MonoBehaviour
     [Tooltip("Offset from the NPC position where the robot stops (0 = exactly at the NPC).")]
     public Vector3 robotTargetOffset = Vector3.zero;
 
+    [Tooltip("Spawn the robot under the same parent as this NPC in the Hierarchy.\n" +
+             "If the NPC has no parent, the robot is spawned at the scene root.")]
+    public bool spawnUnderNpcParent = true;
+
     [Header("Robot Sorting Settings")]
     [Tooltip("Copy this NPC's Sorting Layer and Order in Layer to the spawned robot.")]
     public bool matchNpcSorting = true;
@@ -164,7 +168,15 @@ public class NpcScript : MonoBehaviour
         Vector3 target = GetNpcBaseWorldPosition() + robotTargetOffset;
         List<Vector3> robotPath = BuildRobotPath(target, side, isMiddle);
 
-        GameObject newRobot = Instantiate(robot, robotPath[0], robot.transform.rotation);
+        // Spawn at the same Hierarchy path as this NPC (same parent), keeping the world position
+        Transform spawnParent = spawnUnderNpcParent ? transform.parent : null;
+        GameObject newRobot = Instantiate(robot, robotPath[0], robot.transform.rotation, spawnParent);
+
+        // Place the robot right after this NPC among its siblings
+        if (spawnParent != null)
+        {
+            newRobot.transform.SetSiblingIndex(transform.GetSiblingIndex() + 1);
+        }
 
         // Flip the robot horizontally when it enters from the left side
         if (side < 0f)

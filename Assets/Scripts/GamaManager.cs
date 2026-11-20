@@ -62,12 +62,12 @@ public class GameManager : MonoBehaviour
     /// <summary>
     /// Public property to read whether all stages in current session are finished.
     /// </summary>
-    public bool IsFinished { get; private set; } = false;
+    public bool IsFinished { get; protected set; } = false;   // protected set: SupermanGameManager
 
     /// <summary>
     /// Public property to read whether the game is over.
     /// </summary>
-    public bool IsGameOver { get; private set; } = false;
+    public bool IsGameOver { get; protected set; } = false;   // protected set: SupermanGameManager
 
     /// <summary>
     /// Public property to read or dynamically update total counts.
@@ -167,7 +167,7 @@ public class GameManager : MonoBehaviour
     /// <summary>
     /// Completes the current stage. When all are completed, displays Next Button, pauses timer, and logs message.
     /// </summary>
-    public void CompleteCurrentStage()
+    public virtual void CompleteCurrentStage()   // virtual: overridden by SupermanGameManager
     {
         if (IsFinished || IsGameOver) return;
 
@@ -309,7 +309,7 @@ public class GameManager : MonoBehaviour
     /// <summary>
     /// Triggers Game Over state and invokes GameOver() on PlayerScript attached to player GameObject.
     /// </summary>
-    public void GameOver()
+    public virtual void GameOver()   // virtual: overridden by SupermanGameManager
     {
         if (IsGameOver) return;
 

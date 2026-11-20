@@ -205,7 +205,7 @@ MonoBehaviour:
   yellowBar: {fileID: 2515232283038550263}
   redBar: {fileID: 5502049676119925494}
   gameManagerObject: {fileID: 0}
-  totalTime: 15
+  totalTime: 30
   yellowTime: 10
   redTime: 5
   useUnscaledTime: 0
@@ -221,6 +221,15 @@ MonoBehaviour:
   loopDuration: 0.6
   pulseScale: 1.15
   blinkMinAlpha: 0.3
+  penaltySeconds: 3
+  penaltyEffects: 25
+  penaltyInstantDrop: 1
+  penaltyEffectDuration: 0.35
+  penaltyShakeTarget: {fileID: 0}
+  penaltyTintColor: {r: 1, g: 1, b: 1, a: 1}
+  trailColor: {r: 1, g: 0.25, b: 0.25, a: 0.85}
+  trailDelay: 0.3
+  trailShrinkDuration: 0.4
   moveDistance: 1
   shakeStrength: 0.1
   punchStrength: 0.3
@@ -228,6 +237,9 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   onEnterRed:
+    m_PersistentCalls:
+      m_Calls: []
+  onPenalty:
     m_PersistentCalls:
       m_Calls: []
   onTimeUp:
