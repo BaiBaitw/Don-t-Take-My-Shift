@@ -129,10 +129,13 @@ MonoBehaviour:
   robot: {fileID: 7711758881537971445, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
   robotEntrySide: 1
   robotSpawnMinDelay: 0
-  robotSpawnMaxDelay: 2
+  robotSpawnMaxDelay: 1
   robotMoveSpeed: 3
   robotSpawnDistance: 8
   robotTargetOffset: {x: 0, y: 0, z: 0}
+  robotFacesRightByDefault: 1
+  backWalkParameter: BackWalk
+  spawnUnderNpcParent: 1
   matchNpcSorting: 1
   robotSortingOrderOffset: 0
   npcExitTriggerDistance: 3

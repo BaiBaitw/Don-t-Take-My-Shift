@@ -52,6 +52,14 @@ public class NpcScript : MonoBehaviour
     [Tooltip("Offset from the NPC position where the robot stops (0 = exactly at the NPC).")]
     public Vector3 robotTargetOffset = Vector3.zero;
 
+    [Tooltip("Check this if the robot prefab's walk animation faces RIGHT by default.\n" +
+             "The robot is flipped horizontally so it always faces the direction it walks.\n" +
+             "If the robot looks backwards, toggle this.")]
+    public bool robotFacesRightByDefault = true;
+
+    [Tooltip("Animator bool parameter set to true while the robot moves upward (bottom to top).")]
+    public string backWalkParameter = "BackWalk";
+
     [Tooltip("Spawn the robot under the same parent as this NPC in the Hierarchy.\n" +
              "If the NPC has no parent, the robot is spawned at the scene root.")]
     public bool spawnUnderNpcParent = true;
@@ -178,11 +186,14 @@ public class NpcScript : MonoBehaviour
             newRobot.transform.SetSiblingIndex(transform.GetSiblingIndex() + 1);
         }
 
-        // Flip the robot horizontally when it enters from the left side
-        if (side < 0f)
+        // Flip the robot so its walk animation faces the walking direction.
+        // Entering from the left = walking right (+1), entering from the right = walking left (-1).
+        float walkDirection = -side;
+        float defaultFacing = robotFacesRightByDefault ? 1f : -1f;
+        if (walkDirection != defaultFacing)
         {
             Vector3 scale = newRobot.transform.localScale;
-            scale.x = -Mathf.Abs(scale.x);
+            scale.x = -scale.x;
             newRobot.transform.localScale = scale;
         }
 
@@ -191,29 +202,53 @@ public class NpcScript : MonoBehaviour
             ApplyNpcSorting(newRobot);
         }
 
-        RobotScript robotScript = newRobot.GetComponent<RobotScript>();
+        // RobotScript and Animator live on a child object of the prefab
+        RobotScript robotScript = newRobot.GetComponentInChildren<RobotScript>(true);
         if (robotScript == null)
         {
-            Debug.LogWarning($"[{name}] The spawned robot has no RobotScript attached.", newRobot);
+            Debug.LogWarning($"[{name}] The spawned robot has no RobotScript on itself or its children.", newRobot);
         }
 
-        yield return MoveRobotRoutine(newRobot.transform, robotScript, robotPath, target, side, isMiddle);
+        Animator robotAnimator = newRobot.GetComponentInChildren<Animator>(true);
+
+        yield return MoveRobotRoutine(newRobot.transform, robotScript, robotAnimator,
+                                      robotPath, target, side, isMiddle);
     }
 
-    private IEnumerator MoveRobotRoutine(Transform robotTransform, RobotScript robotScript,
+    private IEnumerator MoveRobotRoutine(Transform robotTransform, RobotScript robotScript, Animator robotAnimator,
                                          List<Vector3> path, Vector3 target, float side, bool isMiddle)
     {
-        if (robotScript != null)
-        {
-            robotScript.Walk();
-        }
-
         bool npcExitStarted = false;
+        bool isWalking = false;
 
         // path[0] is the spawn position, so start moving toward path[1]
         for (int i = 1; i < path.Count; i++)
         {
             Vector3 waypoint = path[i];
+
+            Vector3 segment = waypoint - path[i - 1];
+            bool movingUp = segment.y > 0f && Mathf.Abs(segment.y) > Mathf.Abs(segment.x);
+
+            if (movingUp)
+            {
+                // Moving bottom to top: only BackWalk, no Walk animation
+                if (isWalking && robotScript != null)
+                {
+                    robotScript.StopWalking();
+                }
+                isWalking = false;
+                SetBackWalk(robotAnimator, true);
+            }
+            else
+            {
+                // Moving left / right: Walk animation only
+                SetBackWalk(robotAnimator, false);
+                if (!isWalking && robotScript != null)
+                {
+                    robotScript.Walk();
+                }
+                isWalking = true;
+            }
 
             while (robotTransform != null &&
                    (robotTransform.position - waypoint).sqrMagnitude > 0.0001f)
@@ -239,7 +274,9 @@ public class NpcScript : MonoBehaviour
             robotTransform.position = waypoint;
         }
 
-        if (robotScript != null)
+        SetBackWalk(robotAnimator, false);
+
+        if (isWalking && robotScript != null)
         {
             robotScript.StopWalking();
         }
@@ -272,6 +309,26 @@ public class NpcScript : MonoBehaviour
                 yield return null;
             }
             transform.position = waypoint;
+        }
+    }
+
+    // ---------- Animation helpers ----------
+
+    private void SetBackWalk(Animator animator, bool value)
+    {
+        if (animator == null || string.IsNullOrEmpty(backWalkParameter))
+        {
+            return;
+        }
+
+        // Only set the parameter if it exists, to avoid Animator warnings
+        foreach (AnimatorControllerParameter p in animator.parameters)
+        {
+            if (p.name == backWalkParameter && p.type == AnimatorControllerParameterType.Bool)
+            {
+                animator.SetBool(backWalkParameter, value);
+                return;
+            }
         }
     }
 

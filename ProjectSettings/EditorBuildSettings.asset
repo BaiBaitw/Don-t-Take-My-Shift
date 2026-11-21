@@ -6,9 +6,30 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/Scenes/MenuScene.unity
+    guid: 1f2c3e9a630ef46428e4be94dc5ef421
+  - enabled: 1
     path: Assets/Scenes/TypistScene.unity
     guid: 2469581e2d7d50e4daa726a7915cfc0d
   - enabled: 1
+    path: Assets/Scenes/IllustratorScene.unity
+    guid: 5b0d27e07fba814478cae002b16854bd
+  - enabled: 1
+    path: Assets/Scenes/ComposerScene.unity
+    guid: b4a94dac615d02442a5c87c2331f362b
+  - enabled: 1
+    path: Assets/Scenes/FactoryScene.unity
+    guid: edd86e080ab01c54b8698d6d0e4032ed
+  - enabled: 1
+    path: Assets/Scenes/EngineerScene.unity
+    guid: 2a2417695aacc0147a45cbba9b5762f1
+  - enabled: 1
+    path: Assets/Scenes/ScamScene.unity
+    guid: 73f658537f85d8643a36969834925aab
+  - enabled: 1
+    path: Assets/Scenes/SupermanScene.unity
+    guid: 81aef19c736a6c04fadfbb9e91e1ce31
+  - enabled: 0
     path: Assets/Scenes/SampleScene.unity
     guid: 8c9cfa26abfee488c85f1582747f6a02
   m_configObjects:
