@@ -70,26 +70,26 @@ public class PlayerScript : MonoBehaviour
     public int robotSortingOrderOffset = 0;
 
     [Header("Player Exit Settings")]
-    [Tooltip("Seconds after the robot spawns before the player leaves.")]
+    [Tooltip("Seconds after the robot spawns before the player starts walking.")]
     public float playerLeaveDelay = 2f;
 
-    [Tooltip("How far the player moves up before leaving.")]
-    public float playerRiseDistance = 2f;
+    [Tooltip("How far the player walks to the left before the Lose animation starts.")]
+    public float playerWalkDistance = 1.5f;
 
-    [Tooltip("Player move speed when moving up (units per second).")]
-    public float playerRiseSpeed = 2f;
+    [Tooltip("Player walk speed (units per second).")]
+    public float playerWalkSpeed = 2f;
 
-    [Tooltip("Player move speed when leaving (units per second).")]
-    public float exitSpeed = 2f;
+    [Tooltip("Check this if the player's walk animation faces RIGHT by default.\n" +
+             "The player is flipped horizontally so it faces left while walking.\n" +
+             "If the player looks backwards, toggle this.")]
+    public bool playerFacesRightByDefault = true;
 
-    [Tooltip("Direction the player leaves in.")]
-    public Vector3 exitDirection = Vector3.right;
+    [Tooltip("Keep the player flipped when the Lose animation plays.\n" +
+             "Unchecked = flip back to the original facing before Lose.")]
+    public bool keepFlippedOnLose = false;
 
     [Header("Gizmos")]
     public bool showGizmos = true;
-
-    [Tooltip("Length of the exit direction guide line.")]
-    public float exitArrowLength = 3f;
 
     private bool robotSwitchStarted = false;
     private bool playerLeaving = false;
@@ -105,7 +105,7 @@ public class PlayerScript : MonoBehaviour
     // ---------- Path points ----------
     private Vector3 Origin => hasOrigin ? originPos : transform.position;
     private Vector3 RobotTargetPos => Origin + robotTargetOffset;
-    private Vector3 PlayerRisePos => Origin + Vector3.up * playerRiseDistance;
+    private Vector3 PlayerWalkTarget => Origin + Vector3.left * playerWalkDistance;
 
     private void Awake()
     {
@@ -126,7 +126,7 @@ public class PlayerScript : MonoBehaviour
 
     /// <summary>
     /// Spawns a robot on the chosen side and moves it to the player's position.
-    /// After playerLeaveDelay seconds the player moves up and leaves.
+    /// After playerLeaveDelay seconds the player walks left, then plays the Lose animation.
     /// Can only be executed once.
     /// </summary>
     public void RobotSwitch()
@@ -286,28 +286,43 @@ public class PlayerScript : MonoBehaviour
         if (playerLeaving) return;
         playerLeaving = true;
 
-        myAnimator.SetBool("Lose", true);
         StartCoroutine(PlayerLeaveRoutine());
     }
 
     private IEnumerator PlayerLeaveRoutine()
     {
-        // Step 1: player moves up
-        Vector3 riseTarget = PlayerRisePos;
-        while ((transform.position - riseTarget).sqrMagnitude > 0.0001f)
+        Vector3 originalScale = transform.localScale;
+
+        // Flip the player so the walk animation faces left (walking direction = -1)
+        float defaultFacing = playerFacesRightByDefault ? 1f : -1f;
+        if (defaultFacing != -1f)
+        {
+            Vector3 scale = transform.localScale;
+            scale.x = -scale.x;
+            transform.localScale = scale;
+        }
+
+        // Step 1: walk left a short distance
+        myAnimator.SetBool("Walk", true);
+
+        Vector3 walkTarget = PlayerWalkTarget;
+        while ((transform.position - walkTarget).sqrMagnitude > 0.0001f)
         {
             transform.position = Vector3.MoveTowards(
-                transform.position, riseTarget, playerRiseSpeed * Time.deltaTime);
+                transform.position, walkTarget, playerWalkSpeed * Time.deltaTime);
             yield return null;
         }
-        transform.position = riseTarget;
+        transform.position = walkTarget;
 
-        // Step 2: player keeps walking out
-        while (true)
+        myAnimator.SetBool("Walk", false);
+
+        // Step 2: play the Lose animation and stay in place
+        if (!keepFlippedOnLose)
         {
-            transform.position += exitDirection.normalized * exitSpeed * Time.deltaTime;
-            yield return null;
+            transform.localScale = originalScale;
         }
+
+        myAnimator.SetBool("Lose", true);
     }
 
     // ---------- Animation helpers ----------
@@ -453,19 +468,17 @@ public class PlayerScript : MonoBehaviour
             DrawRobotPathGizmos(robotEntrySide);
         }
 
-        // Player path (yellow): up -> exit direction
+        // Player path (yellow): walk left -> Lose position
         Vector3 origin = Origin;
+        Vector3 walkTarget = PlayerWalkTarget;
         Gizmos.color = Color.yellow;
-        Gizmos.DrawLine(origin, PlayerRisePos);
-        Gizmos.DrawWireSphere(PlayerRisePos, 0.2f);
-        Vector3 exitEnd = PlayerRisePos + exitDirection.normalized * exitArrowLength;
-        Gizmos.DrawLine(PlayerRisePos, exitEnd);
-        DrawArrowHead(exitEnd, exitDirection.normalized);
+        Gizmos.DrawLine(origin, walkTarget);
+        Gizmos.DrawWireSphere(walkTarget, 0.2f);
+        DrawArrowHead(walkTarget, Vector3.left);
 
 #if UNITY_EDITOR
         Handles.Label(RobotTargetPos + Vector3.down * 0.4f, "Robot Target");
-        Handles.Label(PlayerRisePos, "Player Rise");
-        Handles.Label(exitEnd, "Player Exit");
+        Handles.Label(walkTarget + Vector3.up * 0.4f, "Player Lose");
 #endif
     }
 

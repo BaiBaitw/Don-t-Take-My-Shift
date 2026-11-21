@@ -56,6 +56,10 @@ public class EngineerManager : MonoBehaviour
     [Header("Error")]
     public GameObject error_Redbox;
 
+    [Header("Player")]
+    [Tooltip("Player object with a PlayerScript (or SupermanPlayerScript) component")]
+    public GameObject player;
+
     [Header("Wrong Click Feedback")]
     [Tooltip("Object with the CountdownBar script")]
     public CountdownBar countdownBar;
@@ -263,6 +267,9 @@ public class EngineerManager : MonoBehaviour
     private bool gameOverApplied;
     private Coroutine errorRoutine;
 
+    private PlayerScript playerScript;
+    private SupermanPlayerScript supermanPlayerScript;
+
     private bool GmIsFinished => gameManager != null && gameManager.IsFinished;
     private bool GmIsGameOver => gameManager != null && gameManager.IsGameOver;
 
@@ -283,7 +290,37 @@ public class EngineerManager : MonoBehaviour
             error_Redbox.SetActive(false);
         }
 
+        FindPlayerScripts();
         ValidateQuestionBank();
+    }
+
+    /// <summary>Looks for PlayerScript on the player; falls back to SupermanPlayerScript.</summary>
+    private void FindPlayerScripts()
+    {
+        if (player == null)
+        {
+            Debug.LogWarning("[EngineerManager] player is not assigned.");
+            return;
+        }
+
+        playerScript = player.GetComponent<PlayerScript>();
+        if (playerScript == null)
+            supermanPlayerScript = player.GetComponent<SupermanPlayerScript>();
+
+        if (playerScript == null && supermanPlayerScript == null)
+            Debug.LogWarning("[EngineerManager] No PlayerScript or SupermanPlayerScript found on player.");
+    }
+
+    private void PlayPlayerWrongAnimation()
+    {
+        // The player may have been swapped at runtime, so look again if nothing is cached.
+        if (playerScript == null && supermanPlayerScript == null)
+            FindPlayerScripts();
+
+        if (playerScript != null)
+            playerScript.PlayWrongAnimation();
+        else if (supermanPlayerScript != null)
+            supermanPlayerScript.PlayWrongAnimation();
     }
 
     private void OnValidate()
@@ -426,6 +463,7 @@ public class EngineerManager : MonoBehaviour
     private void OnWrongClick()
     {
         ShowError();
+        PlayPlayerWrongAnimation();
 
         if (countdownBar != null)
             countdownBar.ApplyPenalty(penaltyAmount);

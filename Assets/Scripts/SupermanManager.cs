@@ -92,14 +92,20 @@ public class SupermanGameManager : GameManager
     [SerializeField] private bool startGameBeforeSlide = false;
 
     [Header("Flow")]
+    [Tooltip("On: a random level is already shown on screen before the game starts (no input), and the game begins on that level without sliding.\nOff: the screen is empty and the first level slides in after Start is pressed.")]
+    [SerializeField] private bool showPreviewOnLoad = true;
     [SerializeField] private Button startGameButton;
     [Tooltip("Shown after time is up. Loads Next Scene Name (empty = reload this scene)")]
     [SerializeField] private Button nextGameButton;
     [SerializeField] private string nextSceneName = "";
     [Tooltip("GameObject with the CountdownBar script (receives StartTimer)")]
     [SerializeField] private GameObject timeManager;
-    [Tooltip("GameObject with PlayerScript (receives GameOver)")]
+    [Tooltip("Player GameObject (e.g. with SupermanPlayerScript). Receives GameOver(), and PlayWrongAnimation() on every mistake")]
     [SerializeField] private GameObject playerObject;
+    [Tooltip("Call PlayWrongAnimation() on the Player for every mistake, in all six levels.\nLeave the Player field EMPTY in TypistGame / IllustratorGame, so the animation isn't played twice")]
+    [SerializeField] private bool playWrongAnimOnMistake = true;
+    [Tooltip("GameObject with a ScreenShake script (e.g. shakeRootforPlayer). Shake() is called on every mistake, in all six levels")]
+    [SerializeField] private GameObject shakeRootForPlayer;
     [Tooltip("Seconds between finishing a question and the next question / slide. Keep it above FactoryManager's Effect Duration (0.25)")]
     [SerializeField] private float nextQuestionDelay = 0.35f;
     [Tooltip("Every N clears in total (all levels added together), ALL six levels get IncreaseDifficulty() once (0 = never)")]
@@ -122,6 +128,8 @@ public class SupermanGameManager : GameManager
     [SerializeField] private GameObject feverEffect;
     [Tooltip("Seconds added to the countdown bar for each clear while Fever is on (0 = none)")]
     [SerializeField] private float feverTimeBonus = 2f;
+    [Tooltip("Bool parameter in the Player's Animator (read from Player Object): true while Fever is on, false otherwise")]
+    [SerializeField] private string feverAnimParam = "Fever";
 
     [Header("Events")]
     [SerializeField] private IntEvent onScoreChanged = new IntEvent();
@@ -138,10 +146,15 @@ public class SupermanGameManager : GameManager
 
     private readonly List<int> validLevels = new List<int>();
     private int currentLevel = -1;
+    private int previewLevel = -1;   // level shown on screen before the game starts
     private CountdownBar countdown;
+    private ScreenShake playerShake;
     private int streak;
     private bool mistakeThisClear;
     private Coroutine flowRoutine;
+    private Animator playerAnimator;   // read from Player Object (or its children)
+    private int feverParamHash;
+    private bool hasFeverParam;
 
     public int Score { get; private set; }
     public int Streak => streak;
@@ -176,6 +189,13 @@ public class SupermanGameManager : GameManager
             if (countdown == null)
                 Debug.LogWarning("[SupermanGameManager] Time Manager has no CountdownBar; Fever time bonus will not work.", this);
         }
+        if (shakeRootForPlayer != null)
+        {
+            playerShake = shakeRootForPlayer.GetComponent<ScreenShake>();
+            if (playerShake == null)
+                Debug.LogWarning("[SupermanGameManager] shakeRootForPlayer has no ScreenShake script.", shakeRootForPlayer);
+        }
+
         if (worldCamera != null && !worldCamera.orthographic)
             Debug.LogWarning("[SupermanGameManager] Camera is not orthographic; world and UI may not slide in sync.", this);
 
@@ -213,6 +233,17 @@ public class SupermanGameManager : GameManager
             SetLevelActive(i, false);
         }
 
+        // Show a random level on screen before the game starts.
+        // Its script stays disabled, so it reads no input until StartSuperman().
+        if (showPreviewOnLoad && validLevels.Count > 0)
+        {
+            previewLevel = PickRandomLevel();
+            ApplyOffset(previewLevel, 0f);
+            SetLevelActive(previewLevel, true);
+            SetScriptEnabled(previewLevel, false);
+            currentLevel = previewLevel;
+        }
+
         if (startGameButton != null) startGameButton.onClick.AddListener(StartSuperman);
         if (nextGameButton != null)
         {
@@ -221,6 +252,7 @@ public class SupermanGameManager : GameManager
         }
 
         if (feverEffect != null) feverEffect.SetActive(false);
+        SetupPlayerAnimator();
         UpdateScoreUI();
     }
 
@@ -309,6 +341,15 @@ public class SupermanGameManager : GameManager
         mistakeThisClear = true;
         streak = 0;
         if (IsFever) SetFever(false);
+
+        // Works with any player script (SupermanPlayerScript, PlayerScript, ...) that has PlayWrongAnimation()
+        if (playWrongAnimOnMistake && playerObject != null)
+            playerObject.SendMessage("PlayWrongAnimation", SendMessageOptions.DontRequireReceiver);
+
+        // Shake the player's root too (uses that ScreenShake's Default Settings)
+        if (playerShake != null)
+            playerShake.Shake();
+
         onMistake.Invoke();
     }
 
@@ -343,8 +384,18 @@ public class SupermanGameManager : GameManager
     // ============================================================
     private IEnumerator FirstLevelRoutine()
     {
-        int first = PickRandomLevel();
-        yield return SwitchToLevel(first);
+        if (previewLevel >= 0 && currentLevel == previewLevel)
+        {
+            // The preview level is already on screen: start it right here, no slide
+            SetScriptEnabled(previewLevel, true);
+            yield return null;          // one frame so its Start() runs before StartGame()
+            StartLevelGame(previewLevel);
+        }
+        else
+        {
+            int first = PickRandomLevel();
+            yield return SwitchToLevel(first);
+        }
 
         // Timer starts once the first level is on screen
         if (timeManager != null && !IsGameOver)
@@ -490,8 +541,40 @@ public class SupermanGameManager : GameManager
 
         IsFever = on;
         if (feverEffect != null) feverEffect.SetActive(on);
+        SetPlayerFeverAnim(on);
         if (on) onFeverStart.Invoke();
         else onFeverEnd.Invoke();
+    }
+
+    private void SetupPlayerAnimator()
+    {
+        if (playerObject != null)
+            playerAnimator = playerObject.GetComponentInChildren<Animator>(true);
+
+        if (playerAnimator == null || string.IsNullOrEmpty(feverAnimParam)) return;
+
+        feverParamHash = Animator.StringToHash(feverAnimParam);
+        foreach (AnimatorControllerParameter p in playerAnimator.parameters)
+        {
+            if (p.nameHash == feverParamHash && p.type == AnimatorControllerParameterType.Bool)
+            {
+                hasFeverParam = true;
+                break;
+            }
+        }
+
+        if (!hasFeverParam)
+            Debug.LogWarning($"[SupermanGameManager] Player Animator has no Bool parameter named \"{feverAnimParam}\".", playerAnimator);
+
+        SetPlayerFeverAnim(false);
+    }
+
+    /// <summary>Sets the Player Animator's Fever bool (true = Fever on).</summary>
+    private void SetPlayerFeverAnim(bool on)
+    {
+        if (!hasFeverParam || playerAnimator == null) return;
+        if (!playerAnimator.isActiveAndEnabled) return;   // Animator ignores parameters while disabled
+        playerAnimator.SetBool(feverParamHash, on);
     }
 
     /// <summary>A mistake = the current level's Error Redbox turning on.</summary>

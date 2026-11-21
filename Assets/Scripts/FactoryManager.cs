@@ -50,6 +50,12 @@ public class FactoryManager : MonoBehaviour
     [Tooltip("Drag in the countdownBar object (with the CountdownBar script attached)")]
     public CountdownBar countdownBar;
 
+    [Header("Player")]
+    [Tooltip("Player object (with PlayerScript or SupermanPlayerScript attached)")]
+    public GameObject player;
+    private PlayerScript playerScript;
+    private SupermanPlayerScript supermanPlayerScript;
+
     [Header("Screen Shake")]
     [Tooltip("ScreenShake component; the whole screen shakes on a wrong input")]
     public ScreenShake screenShake;
@@ -99,6 +105,17 @@ public class FactoryManager : MonoBehaviour
 
         if (gameManager == null)
             Debug.LogError("[FactoryManager] GameManager script not found!");
+
+        // Player: use PlayerScript first; if missing, try SupermanPlayerScript
+        if (player != null)
+        {
+            playerScript = player.GetComponent<PlayerScript>();
+            if (playerScript == null)
+                supermanPlayerScript = player.GetComponent<SupermanPlayerScript>();
+
+            if (playerScript == null && supermanPlayerScript == null)
+                Debug.LogWarning("[FactoryManager] Neither PlayerScript nor SupermanPlayerScript found on player!");
+        }
 
         // If the templates are scene objects, hide them; they are only used for cloning
         HideIfSceneObject(leftButton);
@@ -299,6 +316,12 @@ public class FactoryManager : MonoBehaviour
         // Apply the time penalty for a wrong input
         if (countdownBar != null)
             countdownBar.ApplyPenalty();
+
+        // Play the player's wrong animation
+        if (playerScript != null)
+            playerScript.PlayWrongAnimation();
+        else if (supermanPlayerScript != null)
+            supermanPlayerScript.PlayWrongAnimation();
 
         // Shake the whole screen (scene + UI)
         if (screenShake != null)

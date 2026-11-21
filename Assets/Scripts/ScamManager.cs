@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text;
 using TMPro;
 using UnityEngine;
@@ -47,6 +48,8 @@ public class ScamManager : MonoBehaviour
     [SerializeField] private GameObject countdownBar;
     [Tooltip("Must have the ScreenShake script (optional)")]
     [SerializeField] private GameObject screenShakeObject;
+    [Tooltip("Must have the playerScript script (falls back to supermanPlayerScript)")]
+    [SerializeField] private GameObject Player;
 
     // --------------------------- Settings ---------------------------
     [Header("Display")]
@@ -101,6 +104,14 @@ public class ScamManager : MonoBehaviour
     private CountdownBar countdown;
     private ScreenShake screenShake;
 
+    // Player script found on Player, and its PlayWrongAnimation() method
+    private Component playerComponent;
+    private MethodInfo playWrongAnimationMethod;
+
+    // Script class names to look for on Player, in order (both spellings are tried)
+    private static readonly string[] PlayerScriptNames = { "playerScript", "PlayerScript" };
+    private static readonly string[] SupermanPlayerScriptNames = { "supermanPlayerScript", "SupermanPlayerScript" };
+
     private readonly Dictionary<char, Button> keyButtons = new Dictionary<char, Button>();
     private readonly Dictionary<Selectable, Coroutine> pressRoutines = new Dictionary<Selectable, Coroutine>();
     private readonly List<int> keyPositions = new List<int>(); // Indices of pressable characters in the display string
@@ -138,6 +149,7 @@ public class ScamManager : MonoBehaviour
         if (gameManagerObject != null) gameManager = gameManagerObject.GetComponent<GameManager>();
         if (countdownBar != null) countdown = countdownBar.GetComponent<CountdownBar>();
         if (screenShakeObject != null) screenShake = screenShakeObject.GetComponent<ScreenShake>();
+        FindPlayerScript();
 
         if (phoneText == null) Debug.LogError("[ScamManager] No TextMeshPro - Text (UI) found on phoneNumberContainer", this);
         if (callBtn == null) Debug.LogError("[ScamManager] No Button found on callButton", this);
@@ -168,6 +180,56 @@ public class ScamManager : MonoBehaviour
         RegisterKey('#', phoneNumberxx);
 
         if (callBtn != null) callBtn.onClick.AddListener(OnCallButtonClicked);
+    }
+
+    /// <summary>
+    /// Looks for playerScript on Player. If it is not there, falls back to supermanPlayerScript.
+    /// Scripts are found by class name, so this compiles even if one of them does not exist.
+    /// </summary>
+    private void FindPlayerScript()
+    {
+        playerComponent = null;
+        playWrongAnimationMethod = null;
+
+        if (Player == null)
+        {
+            Debug.LogWarning("[ScamManager] Player is not assigned; PlayWrongAnimation() will not be called", this);
+            return;
+        }
+
+        playerComponent = FindComponentByName(Player, PlayerScriptNames);
+        if (playerComponent == null)
+            playerComponent = FindComponentByName(Player, SupermanPlayerScriptNames);
+
+        if (playerComponent == null)
+        {
+            Debug.LogWarning("[ScamManager] Neither playerScript nor supermanPlayerScript was found on Player", this);
+            return;
+        }
+
+        playWrongAnimationMethod = playerComponent.GetType().GetMethod(
+            "PlayWrongAnimation",
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            null, System.Type.EmptyTypes, null);
+
+        if (playWrongAnimationMethod == null)
+            Debug.LogWarning($"[ScamManager] {playerComponent.GetType().Name} has no PlayWrongAnimation() method", this);
+    }
+
+    private static Component FindComponentByName(GameObject target, string[] names)
+    {
+        foreach (string n in names)
+        {
+            Component c = target.GetComponent(n);
+            if (c != null) return c;
+        }
+        return null;
+    }
+
+    private void PlayPlayerWrongAnimation()
+    {
+        if (playerComponent == null || playWrongAnimationMethod == null) return;
+        playWrongAnimationMethod.Invoke(playerComponent, null);
     }
 
     private void RegisterKey(char key, Button button)
@@ -571,11 +633,13 @@ public class ScamManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Handles a mistake: shows error_Redbox, applies the countdown penalty and shakes the screen.
+    /// Handles a mistake: shows error_Redbox, plays the player's wrong animation,
+    /// applies the countdown penalty and shakes the screen.
     /// </summary>
     private void RegisterMistake(bool isWrongCall)
     {
         ShowError();
+        PlayPlayerWrongAnimation();
 
         if (isWrongCall && !penalizeWrongCall) return;
 

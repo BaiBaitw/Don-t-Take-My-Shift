@@ -34,7 +34,7 @@ public class IllustratorGame : MonoBehaviour
     public GameObject gameManager;
     [Tooltip("Start automatically when Play is pressed (handy for testing this level alone). When off, the game waits until StartGame() is called")]
     public bool startOnPlay = false;
-    [Tooltip("The GameObject that has the PlayerScript script. PlayWrongAnimation() is called on it each time the cursor leaves the path")]
+    [Tooltip("The GameObject that has the PlayerScript (or SupermanPlayerScript) script. PlayWrongAnimation() is called on it each time the cursor leaves the path")]
     public GameObject player;
 
     [Header("Detection")]
@@ -108,6 +108,7 @@ public class IllustratorGame : MonoBehaviour
     Coroutine nextRoutine;
     GameManager gm;
     PlayerScript playerScript;
+    SupermanPlayerScript supermanPlayerScript;
     bool initialized;
     bool gameOver;
 
@@ -161,7 +162,10 @@ public class IllustratorGame : MonoBehaviour
         if (player != null)
         {
             playerScript = player.GetComponent<PlayerScript>();
-            if (playerScript == null) Debug.LogError("IllustratorGame: the assigned Player object has no PlayerScript script.");
+            // No PlayerScript: try SupermanPlayerScript instead
+            if (playerScript == null) supermanPlayerScript = player.GetComponent<SupermanPlayerScript>();
+            if (playerScript == null && supermanPlayerScript == null)
+                Debug.LogError("IllustratorGame: the assigned Player object has neither a PlayerScript nor a SupermanPlayerScript script.");
         }
         ApplyAppearance();
         initialized = true;
@@ -279,6 +283,7 @@ public class IllustratorGame : MonoBehaviour
             if (screenShake != null) screenShake.Shake();
             if (countdownBar != null) countdownBar.ApplyPenalty(penaltyAmount);
             if (playerScript != null) playerScript.PlayWrongAnimation();
+            else if (supermanPlayerScript != null) supermanPlayerScript.PlayWrongAnimation();
             onPaused.Invoke();
             return;
         }

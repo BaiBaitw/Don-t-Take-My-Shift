@@ -19,6 +19,9 @@ public class ComposerManager : MonoBehaviour
     [Tooltip("Object that has the GameManager script attached")]
     public GameObject gameManager;
 
+    [Tooltip("Player object (has PlayerScript or SupermanPlayerScript attached)")]
+    public GameObject player;
+
     [Header("Keyboard Visuals")]
     [Tooltip("Keyboard background (always visible)")]
     public GameObject keyboard0;
@@ -73,6 +76,8 @@ public class ComposerManager : MonoBehaviour
     private bool isPlaying = false;
     private GameManager gm;
     private CountdownBar countdown;
+    private PlayerScript playerScript;
+    private SupermanPlayerScript supermanPlayerScript;
     private Coroutine errorCoroutine;
 
     // Index 1-5 used; index 0 unused
@@ -95,6 +100,16 @@ public class ComposerManager : MonoBehaviour
 
         if (countdownBar != null)
             countdown = countdownBar.GetComponent<CountdownBar>();
+
+        if (player != null)
+        {
+            playerScript = player.GetComponent<PlayerScript>();
+            if (playerScript == null)
+                supermanPlayerScript = player.GetComponent<SupermanPlayerScript>();
+
+            if (playerScript == null && supermanPlayerScript == null)
+                Debug.LogWarning("[ComposerManager] Neither PlayerScript nor SupermanPlayerScript found on player.");
+        }
 
         keyboards = new GameObject[] { keyboard0, keyboard1, keyboard2, keyboard3, keyboard4, keyboard5 };
         buttons = new Button[] { null, button1, button2, button3, button4, button5 };
@@ -252,7 +267,17 @@ public class ComposerManager : MonoBehaviour
 
             if (countdown != null)
                 countdown.ApplyPenalty(penaltyAmount);
+
+            PlayPlayerWrongAnimation();
         }
+    }
+
+    private void PlayPlayerWrongAnimation()
+    {
+        if (playerScript != null)
+            playerScript.PlayWrongAnimation();
+        else if (supermanPlayerScript != null)
+            supermanPlayerScript.PlayWrongAnimation();
     }
 
     private void OnSequenceComplete()

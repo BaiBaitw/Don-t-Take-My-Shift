@@ -229,6 +229,9 @@ MonoBehaviour:
   robotMoveSpeed: 3
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
+  robotFacesRightByDefault: 1
+  backWalkParameter: BackWalk
+  spawnUnderNpcParent: 1
   matchNpcSorting: 1
   robotSortingOrderOffset: 0
   npcExitTriggerDistance: 3
@@ -348,6 +351,9 @@ MonoBehaviour:
   robotMoveSpeed: 3
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
+  robotFacesRightByDefault: 1
+  backWalkParameter: BackWalk
+  spawnUnderNpcParent: 1
   matchNpcSorting: 1
   robotSortingOrderOffset: 0
   npcExitTriggerDistance: 3
@@ -559,6 +565,9 @@ MonoBehaviour:
   robotMoveSpeed: 3
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
+  robotFacesRightByDefault: 1
+  backWalkParameter: BackWalk
+  spawnUnderNpcParent: 1
   matchNpcSorting: 1
   robotSortingOrderOffset: 0
   npcExitTriggerDistance: 3
@@ -894,6 +903,9 @@ MonoBehaviour:
   robotMoveSpeed: 3
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
+  robotFacesRightByDefault: 1
+  backWalkParameter: BackWalk
+  spawnUnderNpcParent: 1
   matchNpcSorting: 1
   robotSortingOrderOffset: 0
   npcExitTriggerDistance: 3
@@ -2116,6 +2128,9 @@ MonoBehaviour:
   robotMoveSpeed: 3
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
+  robotFacesRightByDefault: 1
+  backWalkParameter: BackWalk
+  spawnUnderNpcParent: 1
   matchNpcSorting: 1
   robotSortingOrderOffset: 0
   npcExitTriggerDistance: 3
@@ -2788,6 +2803,9 @@ MonoBehaviour:
   robotMoveSpeed: 3
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
+  robotFacesRightByDefault: 1
+  backWalkParameter: BackWalk
+  spawnUnderNpcParent: 1
   matchNpcSorting: 1
   robotSortingOrderOffset: 0
   npcExitTriggerDistance: 3
@@ -2950,6 +2968,9 @@ MonoBehaviour:
   robotMoveSpeed: 3
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
+  robotFacesRightByDefault: 1
+  backWalkParameter: BackWalk
+  spawnUnderNpcParent: 1
   matchNpcSorting: 1
   robotSortingOrderOffset: 0
   npcExitTriggerDistance: 3
@@ -3069,6 +3090,9 @@ MonoBehaviour:
   robotMoveSpeed: 3
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
+  robotFacesRightByDefault: 1
+  backWalkParameter: BackWalk
+  spawnUnderNpcParent: 1
   matchNpcSorting: 1
   robotSortingOrderOffset: 0
   npcExitTriggerDistance: 3
@@ -3290,16 +3314,25 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   myAnimator: {fileID: 915582423}
   robot: {fileID: 7711758881537971445, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
-  robotSpawnDistance: 1.73
-  robotSpawnBelowDistance: 4.46
+  robotEntrySide: 4
+  robotSpawnMinDelay: 0
+  robotSpawnMaxDelay: 0
   robotMoveSpeed: 3
-  playerLeaveDelay: 1.5
-  playerRiseDistance: 0.18
-  playerRiseSpeed: 2
-  exitSpeed: 2
-  exitDirection: {x: -1, y: 0, z: 0}
+  robotSpawnDistance: 1.73
+  robotTargetOffset: {x: 0, y: 0, z: 0}
+  robotFacesRightByDefault: 1
+  backWalkParameter: BackWalk
+  spawnUnderPlayerParent: 1
+  robotMiddleSideDistance: 1.76
+  robotMiddleDownDistance: 4.47
+  matchPlayerSorting: 1
+  robotSortingOrderOffset: 0
+  playerLeaveDelay: 1.8
+  playerWalkDistance: 1.35
+  playerWalkSpeed: 2
+  playerFacesRightByDefault: 1
+  keepFlippedOnLose: 0
   showGizmos: 1
-  exitArrowLength: 3
 --- !u!1 &946329749
 GameObject:
   m_ObjectHideFlags: 0
@@ -3543,6 +3576,9 @@ MonoBehaviour:
   robotMoveSpeed: 3
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
+  robotFacesRightByDefault: 1
+  backWalkParameter: BackWalk
+  spawnUnderNpcParent: 1
   matchNpcSorting: 1
   robotSortingOrderOffset: 0
   npcExitTriggerDistance: 3
@@ -3749,6 +3785,9 @@ MonoBehaviour:
   robotMoveSpeed: 3
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
+  robotFacesRightByDefault: 1
+  backWalkParameter: BackWalk
+  spawnUnderNpcParent: 1
   matchNpcSorting: 1
   robotSortingOrderOffset: 0
   npcExitTriggerDistance: 3
@@ -4033,6 +4072,7 @@ MonoBehaviour:
   answerContainer: {fileID: 995140243}
   gameManager: {fileID: 2104768298}
   error_Redbox: {fileID: 1765556654}
+  player: {fileID: 915582420}
   countdownBar: {fileID: 1801211424}
   penaltyAmount: 0.2
   screenShake: {fileID: 1288744540}
@@ -4343,6 +4383,9 @@ MonoBehaviour:
   robotMoveSpeed: 3
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
+  robotFacesRightByDefault: 1
+  backWalkParameter: BackWalk
+  spawnUnderNpcParent: 1
   matchNpcSorting: 1
   robotSortingOrderOffset: 0
   npcExitTriggerDistance: 2
@@ -5311,6 +5354,9 @@ MonoBehaviour:
   robotMoveSpeed: 3
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
+  robotFacesRightByDefault: 1
+  backWalkParameter: BackWalk
+  spawnUnderNpcParent: 1
   matchNpcSorting: 1
   robotSortingOrderOffset: 0
   npcExitTriggerDistance: 3
@@ -5792,6 +5838,9 @@ MonoBehaviour:
   robotMoveSpeed: 3
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
+  robotFacesRightByDefault: 1
+  backWalkParameter: BackWalk
+  spawnUnderNpcParent: 1
   matchNpcSorting: 1
   robotSortingOrderOffset: 0
   npcExitTriggerDistance: 3
@@ -6632,6 +6681,9 @@ MonoBehaviour:
   robotMoveSpeed: 3
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
+  robotFacesRightByDefault: 1
+  backWalkParameter: BackWalk
+  spawnUnderNpcParent: 1
   matchNpcSorting: 1
   robotSortingOrderOffset: 0
   npcExitTriggerDistance: 3

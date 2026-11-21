@@ -2875,7 +2875,7 @@ Transform:
   m_GameObject: {fileID: 915582420}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.91, y: -1.41, z: -0.052536428}
+  m_LocalPosition: {x: 0.91, y: -1.41, z: -0.05253643}
   m_LocalScale: {x: 3.8, y: 3.8, z: 3.8}
   m_ConstrainProportionsScale: 1
   m_Children: []
@@ -2985,13 +2985,12 @@ MonoBehaviour:
   robotMiddleDownDistance: 4.79
   matchPlayerSorting: 1
   robotSortingOrderOffset: 0
-  playerLeaveDelay: 1.5
-  playerRiseDistance: 0.22
-  playerRiseSpeed: 2
-  exitSpeed: 2
-  exitDirection: {x: -1, y: 0, z: 0}
+  playerLeaveDelay: 2.5
+  playerWalkDistance: 1.64
+  playerWalkSpeed: 2
+  playerFacesRightByDefault: 1
+  keepFlippedOnLose: 0
   showGizmos: 1
-  exitArrowLength: 4.81
 --- !u!4 &952486646 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 7648163670950001998, guid: 296f0a9197bed224abc86dec1e382413, type: 3}

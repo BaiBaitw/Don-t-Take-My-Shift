@@ -55,7 +55,7 @@ public class TypistGame : MonoBehaviour
     public float enterButtonPressedDuration = 0.15f;
     [Tooltip("GameManager script reference (handles totalLevels and CompleteCurrentStage).")]
     public GameManager gameManager;
-    [Tooltip("Player GameObject. Its PlayerScript component is fetched at runtime and PlayWrongAnimation() is called on every typo.")]
+    [Tooltip("Player GameObject. Its PlayerScript (or SupermanPlayerScript if PlayerScript is missing) is fetched at runtime and PlayWrongAnimation() is called on every typo.")]
     public GameObject player;
     [Tooltip("ScreenShake script reference. Shake() is called on every typo (uses ScreenShake's Default Settings).")]
     public ScreenShake screenShake;
@@ -64,8 +64,9 @@ public class TypistGame : MonoBehaviour
     [Tooltip("Value passed to CountdownBar.ApplyPenalty() on every typo.")]
     public float countdownPenalty = 1f;
 
-    // PlayerScript fetched from the Player GameObject
+    // Player script fetched from the Player GameObject (PlayerScript first, SupermanPlayerScript as fallback)
     private PlayerScript playerScript;
+    private SupermanPlayerScript supermanPlayerScript;
 
     // CountdownBar component fetched from the CountdownBar GameObject
     private CountdownBar countdownBarScript;
@@ -111,9 +112,16 @@ public class TypistGame : MonoBehaviour
         if (player != null)
         {
             playerScript = player.GetComponent<PlayerScript>();
+
+            // If there is no PlayerScript, try SupermanPlayerScript instead
             if (playerScript == null)
             {
-                Debug.LogWarning("TypistGame: PlayerScript was not found on the Player GameObject.", player);
+                supermanPlayerScript = player.GetComponent<SupermanPlayerScript>();
+            }
+
+            if (playerScript == null && supermanPlayerScript == null)
+            {
+                Debug.LogWarning("TypistGame: Neither PlayerScript nor SupermanPlayerScript was found on the Player GameObject.", player);
             }
         }
 
@@ -342,6 +350,10 @@ public class TypistGame : MonoBehaviour
         if (playerScript != null)
         {
             playerScript.PlayWrongAnimation();
+        }
+        else if (supermanPlayerScript != null)
+        {
+            supermanPlayerScript.PlayWrongAnimation();
         }
 
         // Shake the camera and UI

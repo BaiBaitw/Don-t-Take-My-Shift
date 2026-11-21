@@ -30,11 +30,11 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1549294441233939988}
-  - {fileID: 3259365778077359025}
   - {fileID: 7770852687726747250}
   - {fileID: 622702889681471191}
   - {fileID: 3998695456694208604}
   - {fileID: 2555204089487211208}
+  - {fileID: 3259365778077359025}
   - {fileID: 7529457109696151673}
   - {fileID: 5062462111855919126}
   - {fileID: 2189285750923807148}
@@ -100,6 +100,10 @@ PrefabInstance:
     - target: {fileID: 7711758881537971445, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
       propertyPath: m_Name
       value: Robot (12)
+      objectReference: {fileID: 0}
+    - target: {fileID: 9075113154696730671, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
+      propertyPath: m_SortingOrder
+      value: 4
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -167,6 +171,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Robot (8)
       objectReference: {fileID: 0}
+    - target: {fileID: 9075113154696730671, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
+      propertyPath: m_SortingOrder
+      value: 6
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -232,6 +240,10 @@ PrefabInstance:
     - target: {fileID: 7711758881537971445, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
       propertyPath: m_Name
       value: Robot (1)
+      objectReference: {fileID: 0}
+    - target: {fileID: 9075113154696730671, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
+      propertyPath: m_SortingOrder
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -299,6 +311,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Robot (10)
       objectReference: {fileID: 0}
+    - target: {fileID: 9075113154696730671, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
+      propertyPath: m_SortingOrder
+      value: 4
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -364,6 +380,10 @@ PrefabInstance:
     - target: {fileID: 7711758881537971445, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
       propertyPath: m_Name
       value: Robot (7)
+      objectReference: {fileID: 0}
+    - target: {fileID: 9075113154696730671, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
+      propertyPath: m_SortingOrder
+      value: 6
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -431,6 +451,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Robot (2)
       objectReference: {fileID: 0}
+    - target: {fileID: 9075113154696730671, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
+      propertyPath: m_SortingOrder
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -496,6 +520,10 @@ PrefabInstance:
     - target: {fileID: 7711758881537971445, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
       propertyPath: m_Name
       value: Robot (9)
+      objectReference: {fileID: 0}
+    - target: {fileID: 9075113154696730671, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
+      propertyPath: m_SortingOrder
+      value: 6
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -563,6 +591,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Robot (6)
       objectReference: {fileID: 0}
+    - target: {fileID: 9075113154696730671, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
+      propertyPath: m_SortingOrder
+      value: 6
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -628,6 +660,10 @@ PrefabInstance:
     - target: {fileID: 7711758881537971445, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
       propertyPath: m_Name
       value: Robot (13)
+      objectReference: {fileID: 0}
+    - target: {fileID: 9075113154696730671, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
+      propertyPath: m_SortingOrder
+      value: 4
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -695,6 +731,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Robot
       objectReference: {fileID: 0}
+    - target: {fileID: 9075113154696730671, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
+      propertyPath: m_SortingOrder
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -760,6 +800,10 @@ PrefabInstance:
     - target: {fileID: 7711758881537971445, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
       propertyPath: m_Name
       value: Robot (14)
+      objectReference: {fileID: 0}
+    - target: {fileID: 9075113154696730671, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
+      propertyPath: m_SortingOrder
+      value: 4
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -827,6 +871,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Robot (4)
       objectReference: {fileID: 0}
+    - target: {fileID: 9075113154696730671, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
+      propertyPath: m_SortingOrder
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -893,6 +941,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Robot (5)
       objectReference: {fileID: 0}
+    - target: {fileID: 9075113154696730671, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
+      propertyPath: m_SortingOrder
+      value: 6
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -958,6 +1010,10 @@ PrefabInstance:
     - target: {fileID: 7711758881537971445, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
       propertyPath: m_Name
       value: Robot (3)
+      objectReference: {fileID: 0}
+    - target: {fileID: 9075113154696730671, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
+      propertyPath: m_SortingOrder
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
