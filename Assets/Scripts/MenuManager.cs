@@ -1,15 +1,21 @@
 // MenuManager.cs
 // Menu screen: pseudo-3D circular level carousel + level unlock saving (PlayerPrefs)
-// + first-unlock pop-in animation + floating effect + Inspector test tools.
+// + question marks for locked levels + unlock sequence + floating effect + Inspector test tools.
 //
 // Quick setup:
 // 1. Put all xxxOption buttons under the SAME parent (needed for front/back draw ordering).
-// 2. Add this component to any object in the menu scene (e.g. an empty "MenuManager").
-//    When first added, it auto-finds typistOption ... supermanOption by name.
-// 3. Fill in each level's Scene name in "levels" (scenes must be in Build Settings).
-// 4. To go back to the menu from a level, call:
+// 2. Create one "questionMark" UI object (e.g. an Image). It is used as a template:
+//    one copy is created for every level at runtime, and the template itself is hidden.
+// 3. Add this component to any object in the menu scene (e.g. an empty "MenuManager").
+//    When first added, it auto-finds typistOption ... supermanOption and questionMark by name.
+// 4. Fill in each level's Scene name in "levels" (scenes must be in Build Settings).
+// 5. To go back to the menu from a level, call:
 //      MenuManager.CompleteCurrentLevelAndReturn();   // level cleared -> unlock next, back to menu
 //      MenuManager.ReturnToMenu();                    // back to menu without clearing
+//
+// Unlock sequence (per newly unlocked level):
+//   rotate to its slot -> revealDelay -> question mark hides while neighbours close the gap
+//   -> gapWaitTime -> level button pops in while the space opens again -> revealInterval -> next
 
 using System.Collections;
 using System.Collections.Generic;
@@ -27,8 +33,12 @@ using UnityEditor;
 public class MenuManager : MonoBehaviour
 {
     // ------------------------- Types -------------------------
-    public enum EaseType { Linear, InQuad, OutQuad, InOutQuad, OutCubic, InOutCubic, OutBack, OutElastic, OutBounce, Custom }
+    // NOTE: new values are appended at the end so existing Inspector settings keep their meaning.
+    public enum EaseType { Linear, InQuad, OutQuad, InOutQuad, OutCubic, InOutCubic, OutBack, OutElastic, OutBounce, Custom, InCubic, InBack }
     public enum RevealEffect { Scale, Fade, ScaleAndFade, DropIn, RiseUp, SpinIn, FlipIn }
+    public enum HideEffect { Shrink, Fade, ShrinkAndFade, FlyUp, FallDown, SpinOut, FlipOut }
+
+    enum SlotState { Locked, Hiding, Gap, Revealing, Unlocked }
 
     [System.Serializable]
     public class LevelOption
@@ -42,16 +52,17 @@ public class MenuManager : MonoBehaviour
     }
 
     // PlayerPrefs keys
-    public const string KeyUnlocked = "MenuManager_UnlockedCount";  // number of unlocked levels (1 = only level 1)
-    public const string KeyRevealed = "MenuManager_RevealedCount";  // number of levels whose pop-in has already played
-    public const string KeyLastLaunched = "MenuManager_LastLaunched";   // last level launched from the menu (0-based)
-    public const string KeyMenuScene = "MenuManager_MenuScene";      // menu scene name
+    public const string KeyUnlocked = "MenuManager_UnlockedCount";     // number of unlocked levels (1 = only level 1)
+    public const string KeyRevealed = "MenuManager_RevealedCount";     // number of levels whose unlock sequence has played
+    public const string KeyLastLaunched = "MenuManager_LastLaunched";  // last level launched from the menu (0-based)
+    public const string KeyMenuScene = "MenuManager_MenuScene";        // menu scene name
 
     static readonly string[] DefaultNames =
     {
         "typistOption", "illustratorOption", "composerOption", "factoryOption",
         "engineerOption", "scamOption", "supermanOption"
     };
+    const string DefaultQuestionMarkName = "questionMark";
 
     // ------------------------- Inspector settings -------------------------
     [Header("Levels (top to bottom = level 1 -> last level)")]
@@ -66,13 +77,21 @@ public class MenuManager : MonoBehaviour
     public Vector2 ringCenter = new Vector2(0f, 60f);
     [Tooltip("X = horizontal radius; Y = vertical offset between front and back (bigger = viewed more from above; front item sits lower)")]
     public Vector2 ringRadius = new Vector2(420f, 80f);
-    [Tooltip("Scale of the front-most button")]
+    [Tooltip("Scale of the front-most item")]
     public float frontScale = 1f;
-    [Tooltip("Scale of the back-most button")]
+    [Tooltip("Scale of the back-most item")]
     public float backScale = 0.55f;
 
+    [Header("Question Marks (locked levels)")]
+    [Tooltip("Template object for locked levels. One copy is created per level at runtime; the template itself is hidden")]
+    public GameObject questionMarkTemplate;
+    [Tooltip("Size of a question mark relative to a level button (1 = same size). Also sets how much ring space it takes")]
+    public float questionMarkSize = 0.6f;
+    [Tooltip("Can the player rotate onto question marks? (they can never be pressed) If off, switching skips over them")]
+    public bool questionMarksNavigable = true;
+
     [Header("Left / Right Switching")]
-    [Tooltip("Seconds to rotate by one slot")]
+    [Tooltip("Seconds to rotate to the next item")]
     public float slideDuration = 0.45f;
     [Tooltip("Easing used when rotating")]
     public EaseType slideEase = EaseType.OutCubic;
@@ -91,8 +110,8 @@ public class MenuManager : MonoBehaviour
     [Tooltip("Only drags that start inside this area count (empty = full screen)")]
     public RectTransform swipeArea;
 
-    [Header("Dimming (non-front buttons)")]
-    [Tooltip("Color multiplied onto dimmed buttons (alpha is multiplied too, so it can also add transparency)")]
+    [Header("Dimming (non-front items)")]
+    [Tooltip("Color multiplied onto dimmed items (alpha is multiplied too, so it can also add transparency)")]
     public Color dimColor = new Color(0.35f, 0.35f, 0.4f, 1f);
     [Tooltip("Seconds to fade between bright and dim")]
     public float dimDuration = 0.3f;
@@ -111,27 +130,49 @@ public class MenuManager : MonoBehaviour
     public float breatheAmount = 0.03f;
     [Tooltip("Breathing frequency (cycles per second)")]
     public float breatheFrequency = 0.6f;
-    [Tooltip("Phase offset between buttons so they don't float in sync")]
+    [Tooltip("Phase offset between items so they don't float in sync")]
     public float phaseSpread = 1.1f;
 
-    [Header("First-Unlock Pop-in")]
+    [Header("Unlock Sequence - 1. Rotate")]
+    [Tooltip("Delay after rotating to the new level's slot before the question mark starts hiding")]
+    public float revealDelay = 0.35f;
+
+    [Header("Unlock Sequence - 2. Question Mark Hide + Close Gap")]
+    [Tooltip("How the question mark disappears")]
+    public HideEffect questionMarkHideEffect = HideEffect.ShrinkAndFade;
+    [Tooltip("Hide easing (InBack = grows slightly, then shrinks away)")]
+    public EaseType questionMarkHideEase = EaseType.InBack;
+    [Tooltip("Used when questionMarkHideEase is Custom")]
+    public AnimationCurve questionMarkHideCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+    [Tooltip("Seconds for the question mark to disappear (neighbours close the gap during the same time)")]
+    public float questionMarkHideDuration = 0.4f;
+    [Tooltip("Easing for closing / opening ring space")]
+    public EaseType spaceEase = EaseType.InOutCubic;
+    [Tooltip("Used when spaceEase is Custom")]
+    public AnimationCurve spaceCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+
+    [Header("Unlock Sequence - 3. Wait")]
+    [Tooltip("Seconds to wait after the gap closes before the new level appears")]
+    public float gapWaitTime = 0.3f;
+
+    [Header("Unlock Sequence - 4. Level Pop-in + Open Space")]
     [Tooltip("Type of pop-in effect")]
     public RevealEffect revealEffect = RevealEffect.ScaleAndFade;
     [Tooltip("Pop-in easing (OutBack / OutElastic / OutBounce give a bouncy feel)")]
     public EaseType revealEase = EaseType.OutBack;
     [Tooltip("Used when revealEase is Custom")]
     public AnimationCurve revealCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
-    [Tooltip("Pop-in animation duration (seconds)")]
+    [Tooltip("Seconds for the level to pop in (the space opens during the same time)")]
     public float revealDuration = 0.6f;
-    [Tooltip("Delay after rotating to the new level before it pops in")]
-    public float revealDelay = 0.35f;
-    [Tooltip("Gap between pop-ins when several levels unlock at once")]
+
+    [Header("Unlock Sequence - Shared")]
+    [Tooltip("Gap between sequences when several levels unlock at once")]
     public float revealInterval = 0.25f;
-    [Tooltip("Offset distance for DropIn / RiseUp")]
+    [Tooltip("Offset distance for DropIn / RiseUp / FlyUp / FallDown")]
     public float revealOffsetDistance = 250f;
-    [Tooltip("Rotation angle for SpinIn")]
+    [Tooltip("Rotation angle for SpinIn / SpinOut")]
     public float revealSpinAngle = 360f;
-    [Tooltip("Block input while a pop-in is playing")]
+    [Tooltip("Block input while an unlock sequence is playing")]
     public bool lockInputDuringReveal = true;
 
     [Header("Loading / Time")]
@@ -143,11 +184,27 @@ public class MenuManager : MonoBehaviour
     [Header("Audio (optional)")]
     public AudioSource audioSource;
     public AudioClip slideSfx;
+    public AudioClip questionMarkHideSfx;
     public AudioClip revealSfx;
     public AudioClip confirmSfx;
 
+    [Header("Superman Flag")]
+    [Tooltip("Name of the button GameObject that sets SupermanSelected (case-insensitive)")]
+    public string supermanButtonName = "supermanOption";
+    [Tooltip("If true, SupermanSelected stays true after reaching Superman, even when switching away")]
+    public bool keepSupermanFlag = false;
+
+    /// <summary>
+    /// True while the menu is switched to supermanOption (front-most, unlocked).
+    /// Readable from anywhere: MenuManager.SupermanSelected
+    /// </summary>
+    public static bool SupermanSelected { get; private set; }
+
+    /// <summary>Raised whenever SupermanSelected changes (true / false). Remember to unsubscribe in OnDisable.</summary>
+    public static event System.Action<bool> OnSupermanSelectedChanged;
+
     // ------------------------- Runtime state -------------------------
-    class OptionRuntime
+    class Visual
     {
         public GameObject go;
         public RectTransform rect;
@@ -157,18 +214,36 @@ public class MenuManager : MonoBehaviour
         public Vector3 baseScale;
         public float dim;
         public float appliedDim = -1f;
-        public float reveal = 1f;
-        public bool revealing;
         public float depth;
         public float phase;
+        // effect values written by the unlock sequence
+        public Vector3 fxScale = Vector3.one;
+        public float fxAlpha = 1f;
+        public Vector2 fxOffset;
+        public float fxRot;
+
+        public void ResetFx()
+        {
+            fxScale = Vector3.one;
+            fxAlpha = 1f;
+            fxOffset = Vector2.zero;
+            fxRot = 0f;
+        }
     }
 
-    OptionRuntime[] rt;
+    const float TAU = Mathf.PI * 2f;
+
+    Visual[] options;       // level buttons
+    Visual[] marks;         // question marks
+    SlotState[] states;
+    float[] spaceProgress;  // 0..1 progress of closing / opening space for Hiding / Revealing slots
+    float[] weights;        // ring space each slot takes this frame
+    float[] centers;        // center angle of each slot this frame
+    int slotCount;
     int unlockedCount;
-    int shownCount;            // number of levels currently on the ring
-    float ringPos, ringTarget; // ring rotation, measured in level slots
-    float displayCount = 1f, targetCount = 1f;
-    float slideFromPos, slideFromCount, slideTimer;
+
+    float ringPos, ringTarget; // ring rotation, measured in slots
+    float slideFromPos, slideTimer;
     bool sliding;
     bool inputLocked, isLoading;
     bool pointerTracking, swipedThisPress;
@@ -177,14 +252,15 @@ public class MenuManager : MonoBehaviour
     Canvas canvas;
     bool canSort;
     int siblingBase;
-    readonly List<int> sortBuffer = new List<int>();
-    System.Comparison<int> depthComparer;
+    int supermanIndex = -1;
+    readonly List<Visual> sortBuffer = new List<Visual>();
+    static readonly System.Comparison<Visual> DepthComparer = (a, b) => a.depth.CompareTo(b.depth);
 
     float Dt => useUnscaledTime ? Time.unscaledDeltaTime : Time.deltaTime;
     float Now => useUnscaledTime ? Time.unscaledTime : Time.time;
 
-    /// <summary>Index of the current front level (0-based), or -1 if none.</summary>
-    public int FrontIndex => shownCount <= 0 ? -1 : IMod(Mathf.RoundToInt(ringTarget), shownCount);
+    /// <summary>Index of the current front slot (0-based), or -1 if none.</summary>
+    public int FrontIndex => slotCount <= 0 ? -1 : IMod(Mathf.RoundToInt(ringTarget), slotCount);
     public bool IsSliding => sliding;
 
     // ------------------------- Unity lifecycle -------------------------
@@ -198,16 +274,24 @@ public class MenuManager : MonoBehaviour
     {
         string menuName = string.IsNullOrEmpty(menuSceneName) ? gameObject.scene.name : menuSceneName;
         PlayerPrefs.SetString(KeyMenuScene, menuName);
+        SupermanSelected = false;
+        supermanIndex = -1;
 
-        depthComparer = (a, b) => rt[a].depth.CompareTo(rt[b].depth);
-        int n = levels != null ? levels.Length : 0;
-        rt = new OptionRuntime[n];
+        slotCount = levels != null ? levels.Length : 0;
+        options = new Visual[slotCount];
+        marks = new Visual[slotCount];
+        states = new SlotState[slotCount];
+        spaceProgress = new float[slotCount];
+        weights = new float[slotCount];
+        centers = new float[slotCount];
 
         Transform commonParent = null;
+        RectTransform anchorRef = null;
         canSort = true;
         siblingBase = int.MaxValue;
 
-        for (int i = 0; i < n; i++)
+        // Level buttons
+        for (int i = 0; i < slotCount; i++)
         {
             Button b = levels[i] != null ? levels[i].button : null;
             if (b == null)
@@ -216,17 +300,8 @@ public class MenuManager : MonoBehaviour
                 continue;
             }
 
-            var r = new OptionRuntime();
-            r.go = b.gameObject;
-            r.rect = (RectTransform)b.transform;
-            r.group = b.GetComponent<CanvasGroup>();
-            if (r.group == null) r.group = b.gameObject.AddComponent<CanvasGroup>();
-            r.graphics = b.GetComponentsInChildren<Graphic>(true);
-            r.baseColors = new Color[r.graphics.Length];
-            for (int j = 0; j < r.graphics.Length; j++) r.baseColors[j] = r.graphics[j].color;
-            r.baseScale = r.rect.localScale;
-            r.phase = i * phaseSpread;
-            rt[i] = r;
+            var v = CreateVisual(b.gameObject, i * phaseSpread);
+            options[i] = v;
 
             // Disable EventSystem arrow-key navigation (so other buttons can't be selected)
             var nav = b.navigation;
@@ -236,15 +311,78 @@ public class MenuManager : MonoBehaviour
             int idx = i;
             b.onClick.AddListener(() => TrySelect(idx, true));
 
-            if (commonParent == null) commonParent = r.rect.parent;
-            else if (commonParent != r.rect.parent) canSort = false;
-            siblingBase = Mathf.Min(siblingBase, r.rect.GetSiblingIndex());
+            if (supermanIndex < 0 && (NameMatches(b.gameObject.name) || NameMatches(levels[i].label)))
+                supermanIndex = i;
+
+            if (commonParent == null) commonParent = v.rect.parent;
+            else if (commonParent != v.rect.parent) canSort = false;
+            if (anchorRef == null) anchorRef = v.rect;
+            siblingBase = Mathf.Min(siblingBase, v.rect.GetSiblingIndex());
 
             if (canvas == null) canvas = b.GetComponentInParent<Canvas>();
         }
 
+        // Question marks (one copy per level, placed under the same parent as the buttons)
+        if (questionMarkTemplate != null && commonParent != null)
+        {
+            bool templateInScene = questionMarkTemplate.scene.IsValid();
+            for (int i = 0; i < slotCount; i++)
+            {
+                GameObject go = Instantiate(questionMarkTemplate, commonParent, false);
+                go.name = $"{questionMarkTemplate.name}_{i + 1}";
+                var rect = go.transform as RectTransform;
+                if (rect == null)
+                {
+                    Debug.LogWarning("[MenuManager] questionMarkTemplate must be a UI object (RectTransform).", this);
+                    Destroy(go);
+                    break;
+                }
+                if (anchorRef != null)
+                {
+                    rect.anchorMin = anchorRef.anchorMin;
+                    rect.anchorMax = anchorRef.anchorMax;
+                    rect.pivot = anchorRef.pivot;
+                }
+                var m = CreateVisual(go, i * phaseSpread + 0.5f);
+                m.group.blocksRaycasts = false; // question marks can never be clicked
+                marks[i] = m;
+            }
+            if (templateInScene) questionMarkTemplate.SetActive(false);
+        }
+        else if (questionMarkTemplate == null)
+        {
+            Debug.LogWarning("[MenuManager] No questionMarkTemplate assigned; locked levels will be hidden.", this);
+        }
+
         if (!canSort)
             Debug.LogWarning("[MenuManager] Level buttons are not under the same parent; front/back ordering is disabled.", this);
+
+        if (supermanIndex < 0 && slotCount > 0)
+        {
+            var names = new List<string>();
+            for (int i = 0; i < slotCount; i++)
+            {
+                Button b = levels[i] != null ? levels[i].button : null;
+                names.Add($"{i + 1}: " + (b != null ? $"\"{b.gameObject.name}\"" : "(no Button)"));
+            }
+            Debug.LogWarning($"[MenuManager] No button named \"{supermanButtonName}\" found; SupermanSelected will never be true.\n" +
+                             "Assigned buttons -> " + string.Join(", ", names), this);
+        }
+    }
+
+    Visual CreateVisual(GameObject go, float phase)
+    {
+        var v = new Visual();
+        v.go = go;
+        v.rect = (RectTransform)go.transform;
+        v.group = go.GetComponent<CanvasGroup>();
+        if (v.group == null) v.group = go.AddComponent<CanvasGroup>();
+        v.graphics = go.GetComponentsInChildren<Graphic>(true);
+        v.baseColors = new Color[v.graphics.Length];
+        for (int j = 0; j < v.graphics.Length; j++) v.baseColors[j] = v.graphics[j].color;
+        v.baseScale = v.rect.localScale;
+        v.phase = phase;
+        return v;
     }
 
     void Start()
@@ -254,17 +392,29 @@ public class MenuManager : MonoBehaviour
 
     void OnValidate()
     {
-        if (rt == null) return;
-        foreach (var r in rt) if (r != null) r.appliedDim = -1f; // apply color changes immediately
+        // apply color changes immediately
+        if (options != null) foreach (var v in options) if (v != null) v.appliedDim = -1f;
+        if (marks != null) foreach (var v in marks) if (v != null) v.appliedDim = -1f;
     }
 
     void Update()
     {
-        if (rt == null || rt.Length == 0) return;
+        if (slotCount == 0) return;
         float dt = Dt;
         UpdateSlide(dt);
         HandleInput();
+        UpdateSupermanFlag();
         ApplyLayout(dt);
+    }
+
+    void UpdateSupermanFlag()
+    {
+        bool onSuperman = supermanIndex >= 0 && FrontIndex == supermanIndex &&
+                          (states[supermanIndex] == SlotState.Unlocked || states[supermanIndex] == SlotState.Revealing);
+        bool value = keepSupermanFlag ? (SupermanSelected || onSuperman) : onSuperman;
+        if (value == SupermanSelected) return;
+        SupermanSelected = value;
+        OnSupermanSelectedChanged?.Invoke(value);
     }
 
     void LateUpdate()
@@ -272,9 +422,9 @@ public class MenuManager : MonoBehaviour
         // Never let a level button stay "selected" by the EventSystem
         // (prevents Enter from triggering a non-front button or firing twice)
         var es = EventSystem.current;
-        if (es == null || es.currentSelectedGameObject == null || rt == null) return;
-        foreach (var r in rt)
-            if (r != null && es.currentSelectedGameObject == r.go)
+        if (es == null || es.currentSelectedGameObject == null || options == null) return;
+        foreach (var v in options)
+            if (v != null && es.currentSelectedGameObject == v.go)
             {
                 es.SetSelectedGameObject(null);
                 break;
@@ -282,40 +432,43 @@ public class MenuManager : MonoBehaviour
     }
 
     // ------------------------- Progress / rebuild -------------------------
-    /// <summary>Rebuilds the menu from PlayerPrefs; plays pop-ins for any unlocks not yet revealed.</summary>
+    /// <summary>Rebuilds the menu from PlayerPrefs; plays the unlock sequence for any unlocks not yet revealed.</summary>
     public void Rebuild(bool keepCurrentFocus)
     {
-        if (rt == null || rt.Length == 0) return;
+        if (slotCount == 0) return;
 
         int prevFront = FrontIndex;
         if (revealRoutine != null) { StopCoroutine(revealRoutine); revealRoutine = null; }
         inputLocked = false;
         isLoading = false;
 
-        int n = rt.Length;
-        unlockedCount = Mathf.Clamp(PlayerPrefs.GetInt(KeyUnlocked, 1), 1, n);
+        unlockedCount = Mathf.Clamp(PlayerPrefs.GetInt(KeyUnlocked, 1), 1, slotCount);
         int revealed = Mathf.Clamp(PlayerPrefs.GetInt(KeyRevealed, 0), 0, unlockedCount);
-        shownCount = revealed;
 
-        for (int i = 0; i < n; i++)
+        for (int i = 0; i < slotCount; i++)
         {
-            var r = rt[i];
-            if (r == null) continue;
-            r.reveal = 1f;
-            r.revealing = false;
-            r.go.SetActive(i < shownCount);
+            bool open = i < revealed;
+            states[i] = open ? SlotState.Unlocked : SlotState.Locked;
+            spaceProgress[i] = 0f;
+            if (options[i] != null) { options[i].ResetFx(); options[i].go.SetActive(open); }
+            if (marks[i] != null) { marks[i].ResetFx(); marks[i].go.SetActive(!open); }
         }
 
-        int focus = (keepCurrentFocus && prevFront >= 0) ? prevFront : PlayerPrefs.GetInt(KeyLastLaunched, 0);
-        focus = Mathf.Clamp(focus, 0, Mathf.Max(0, shownCount - 1));
-        SnapTo(focus, shownCount);
+        int focus;
+        if (keepCurrentFocus && prevFront >= 0) focus = prevFront;
+        else
+        {
+            focus = PlayerPrefs.GetInt(KeyLastLaunched, 0);
+            focus = revealed > 0 ? Mathf.Clamp(focus, 0, revealed - 1) : 0;
+        }
+        SnapTo(focus);
 
         int front = FrontIndex;
-        for (int i = 0; i < n; i++)
+        for (int i = 0; i < slotCount; i++)
         {
-            if (rt[i] == null) continue;
-            rt[i].dim = (i == front) ? 0f : 1f;
-            rt[i].appliedDim = -1f;
+            float d = (i == front) ? 0f : 1f;
+            if (options[i] != null) { options[i].dim = d; options[i].appliedDim = -1f; }
+            if (marks[i] != null) { marks[i].dim = d; marks[i].appliedDim = -1f; }
         }
 
         if (revealed < unlockedCount)
@@ -330,40 +483,64 @@ public class MenuManager : MonoBehaviour
 
         for (int k = from; k < to; k++)
         {
+            // 1. Rotate to the slot
             while (sliding) yield return null;
-
-            var r = rt[k];
-            bool wasEmpty = shownCount == 0;
-            shownCount = k + 1;
-
-            if (r != null)
+            if (FrontIndex != k)
             {
-                r.reveal = 0f;
-                r.revealing = true;
-                r.dim = 0f;
-                r.appliedDim = -1f;
-                r.go.SetActive(true);
+                StartSlide(NearestTarget(k));
+                while (sliding) yield return null;
             }
-
-            if (wasEmpty) SnapTo(k, shownCount);
-            else StartSlide(NearestTarget(k, shownCount), shownCount);
-
-            while (sliding) yield return null;
             yield return Wait(revealDelay);
 
-            Play(revealSfx);
-            if (r != null)
+            // 2. Question mark hides while the neighbours close the gap
+            var m = marks[k];
+            states[k] = SlotState.Hiding;
+            spaceProgress[k] = 0f;
+            if (m != null)
             {
+                Play(questionMarkHideSfx);
                 float t = 0f;
-                while (t < revealDuration)
+                while (t < questionMarkHideDuration)
                 {
                     t += Dt;
-                    r.reveal = Mathf.Clamp01(t / revealDuration);
+                    float p = Mathf.Clamp01(t / questionMarkHideDuration);
+                    spaceProgress[k] = p;
+                    ApplyHideFx(m, p);
                     yield return null;
                 }
-                r.reveal = 1f;
-                r.revealing = false;
+                m.go.SetActive(false);
+                m.ResetFx();
             }
+            states[k] = SlotState.Gap;
+            spaceProgress[k] = 0f;
+
+            // 3. Wait
+            yield return Wait(gapWaitTime);
+
+            // 4. Level pops in while the space opens
+            var o = options[k];
+            states[k] = SlotState.Revealing;
+            spaceProgress[k] = 0f;
+            if (o != null)
+            {
+                o.dim = (FrontIndex == k) ? 0f : 1f;
+                o.appliedDim = -1f;
+                ApplyRevealFx(o, 0f);
+                o.go.SetActive(true);
+            }
+            Play(revealSfx);
+            float rt = 0f;
+            while (rt < revealDuration)
+            {
+                rt += Dt;
+                float p = Mathf.Clamp01(rt / revealDuration);
+                spaceProgress[k] = p;
+                if (o != null) ApplyRevealFx(o, p);
+                yield return null;
+            }
+            if (o != null) o.ResetFx();
+            states[k] = SlotState.Unlocked;
+            spaceProgress[k] = 0f;
 
             PlayerPrefs.SetInt(KeyRevealed, k + 1);
             PlayerPrefs.Save();
@@ -381,34 +558,81 @@ public class MenuManager : MonoBehaviour
         while (t < seconds) { t += Dt; yield return null; }
     }
 
-    // ------------------------- Rotation -------------------------
-    /// <summary>dir = -1 brings the left level to the front, +1 brings the right level to the front.</summary>
-    public void Step(int dir)
+    void ApplyRevealFx(Visual v, float p)
     {
-        if (shownCount <= 1 || inputLocked || isLoading) return;
-        StartSlide(ringTarget + dir, shownCount);
-        Play(slideSfx);
+        v.ResetFx();
+        float e = Ease(revealEase, p, revealCurve);
+        float fade = Mathf.Clamp01(Ease(EaseType.OutQuad, p, null));
+        switch (revealEffect)
+        {
+            case RevealEffect.Scale: v.fxScale = Vector3.one * e; break;
+            case RevealEffect.Fade: v.fxAlpha = Mathf.Clamp01(e); break;
+            case RevealEffect.ScaleAndFade: v.fxScale = Vector3.one * e; v.fxAlpha = fade; break;
+            case RevealEffect.DropIn: v.fxOffset = new Vector2(0f, (1f - e) * revealOffsetDistance); v.fxAlpha = fade; break;
+            case RevealEffect.RiseUp: v.fxOffset = new Vector2(0f, -(1f - e) * revealOffsetDistance); v.fxAlpha = fade; break;
+            case RevealEffect.SpinIn: v.fxScale = Vector3.one * e; v.fxRot = (1f - e) * revealSpinAngle; v.fxAlpha = fade; break;
+            case RevealEffect.FlipIn: v.fxScale = new Vector3(e, 1f, 1f); v.fxAlpha = fade; break;
+        }
     }
 
-    void SnapTo(int index, int count)
+    void ApplyHideFx(Visual m, float p)
     {
-        displayCount = targetCount = Mathf.Max(1, count);
+        m.ResetFx();
+        float k = 1f - Ease(questionMarkHideEase, p, questionMarkHideCurve); // 1 -> 0
+        float s = Mathf.Max(0f, k);
+        float fade = 1f - Mathf.Clamp01(Ease(EaseType.InQuad, p, null));
+        switch (questionMarkHideEffect)
+        {
+            case HideEffect.Shrink: m.fxScale = Vector3.one * s; break;
+            case HideEffect.Fade: m.fxAlpha = Mathf.Clamp01(k); break;
+            case HideEffect.ShrinkAndFade: m.fxScale = Vector3.one * s; m.fxAlpha = fade; break;
+            case HideEffect.FlyUp: m.fxOffset = new Vector2(0f, (1f - k) * revealOffsetDistance); m.fxAlpha = fade; break;
+            case HideEffect.FallDown: m.fxOffset = new Vector2(0f, -(1f - k) * revealOffsetDistance); m.fxAlpha = fade; break;
+            case HideEffect.SpinOut: m.fxScale = Vector3.one * s; m.fxRot = (1f - k) * revealSpinAngle; m.fxAlpha = fade; break;
+            case HideEffect.FlipOut: m.fxScale = new Vector3(s, 1f, 1f); m.fxAlpha = fade; break;
+        }
+    }
+
+    // ------------------------- Rotation -------------------------
+    /// <summary>dir = -1 brings the left item to the front, +1 brings the right item to the front.</summary>
+    public void Step(int dir)
+    {
+        if (slotCount <= 1 || inputLocked || isLoading) return;
+        int cur = FrontIndex;
+        for (int s = 1; s < slotCount; s++)
+        {
+            int j = IMod(cur + dir * s, slotCount);
+            if (IsNavigable(j))
+            {
+                StartSlide(ringTarget + dir * s);
+                Play(slideSfx);
+                return;
+            }
+        }
+    }
+
+    bool IsNavigable(int i)
+    {
+        if (states[i] == SlotState.Unlocked && options[i] != null) return true;
+        if (questionMarksNavigable && states[i] == SlotState.Locked && marks[i] != null) return true;
+        return false;
+    }
+
+    void SnapTo(int index)
+    {
         ringPos = ringTarget = index;
         sliding = false;
     }
 
-    void StartSlide(float target, int count)
+    void StartSlide(float target)
     {
         slideFromPos = ringPos;
-        slideFromCount = displayCount;
         ringTarget = target;
-        targetCount = Mathf.Max(1, count);
         slideTimer = 0f;
         sliding = slideDuration > 0f;
         if (!sliding)
         {
             ringPos = ringTarget;
-            displayCount = targetCount;
             NormalizeRing();
         }
     }
@@ -420,11 +644,9 @@ public class MenuManager : MonoBehaviour
         float p = Mathf.Clamp01(slideTimer / slideDuration);
         float e = Ease(slideEase, p, slideCurve);
         ringPos = Mathf.LerpUnclamped(slideFromPos, ringTarget, e);
-        displayCount = Mathf.LerpUnclamped(slideFromCount, targetCount, e);
         if (p >= 1f)
         {
             ringPos = ringTarget;
-            displayCount = targetCount;
             sliding = false;
             NormalizeRing();
         }
@@ -432,13 +654,13 @@ public class MenuManager : MonoBehaviour
 
     void NormalizeRing()
     {
-        float n = Mathf.Max(1, shownCount);
-        ringTarget = FMod(ringTarget, n);
+        ringTarget = FMod(ringTarget, Mathf.Max(1, slotCount));
         ringPos = ringTarget;
     }
 
-    float NearestTarget(int index, int count)
+    float NearestTarget(int index)
     {
+        int count = slotCount;
         float cur = FMod(ringPos, count);
         float delta = index - cur;
         if (delta > count * 0.5f) delta -= count;
@@ -449,7 +671,7 @@ public class MenuManager : MonoBehaviour
     // ------------------------- Input -------------------------
     void HandleInput()
     {
-        if (shownCount == 0 || isLoading) { pointerTracking = false; return; }
+        if (slotCount == 0 || isLoading) { pointerTracking = false; return; }
 
         if (!inputLocked)
         {
@@ -476,7 +698,7 @@ public class MenuManager : MonoBehaviour
             if (Mathf.Abs(dx) >= th)
             {
                 swipedThisPress = true; // this press was a swipe, so releasing won't count as a click
-                int dir = dx < 0f ? 1 : -1; // swipe left -> right-hand level comes to the front
+                int dir = dx < 0f ? 1 : -1; // swipe left -> right-hand item comes to the front
                 if (invertSwipe) dir = -dir;
                 Step(dir);
                 if (continuousSwipe) pointerStart = p;
@@ -493,15 +715,14 @@ public class MenuManager : MonoBehaviour
         return canvas.worldCamera;
     }
 
-    /// <summary>Tries to launch a level (only succeeds for the front, available level).</summary>
+    /// <summary>Tries to launch a level (only succeeds for the front, unlocked level).</summary>
     public void TrySelect(int index, bool fromPointer)
     {
-        if (index < 0 || index >= rt.Length || index != FrontIndex) return;
+        if (index < 0 || index >= slotCount || index != FrontIndex) return;
         if (isLoading || inputLocked) return;
         if (sliding && !allowClickWhileSliding) return;
         if (fromPointer && swipedThisPress) return;
-        var r = rt[index];
-        if (r == null || r.revealing) return;
+        if (states[index] != SlotState.Unlocked || options[index] == null) return;
 
         string scene = levels[index].sceneName;
         if (string.IsNullOrEmpty(scene))
@@ -524,102 +745,137 @@ public class MenuManager : MonoBehaviour
     }
 
     // ------------------------- Layout / visuals -------------------------
+    float SlotWeight(int i)
+    {
+        float lockedW = marks[i] != null ? Mathf.Max(0f, questionMarkSize) : 0f;
+        float openW = options[i] != null ? 1f : 0f;
+        switch (states[i])
+        {
+            case SlotState.Locked: return lockedW;
+            case SlotState.Hiding: return lockedW * Mathf.Max(0f, 1f - Ease(spaceEase, spaceProgress[i], spaceCurve));
+            case SlotState.Gap: return 0f;
+            case SlotState.Revealing: return openW * Mathf.Max(0f, Ease(spaceEase, spaceProgress[i], spaceCurve));
+            default: return openW;
+        }
+    }
+
+    Visual ActiveVisual(int i)
+    {
+        switch (states[i])
+        {
+            case SlotState.Locked:
+            case SlotState.Hiding: return marks[i];
+            case SlotState.Revealing:
+            case SlotState.Unlocked: return options[i];
+            default: return null;
+        }
+    }
+
+    // Angle of a (fractional) slot position, interpolating between slot centers
+    float FocusAngle(float f)
+    {
+        float fl = Mathf.Floor(f);
+        float t = f - fl;
+        int j0 = IMod((int)fl, slotCount);
+        int j1 = IMod(j0 + 1, slotCount);
+        float a0 = centers[j0];
+        float a1 = centers[j1];
+        if (j1 <= j0) a1 += TAU;
+        return Mathf.LerpUnclamped(a0, a1, t);
+    }
+
     void ApplyLayout(float dt)
     {
-        if (rt == null) return;
-        float n = Mathf.Max(1f, displayCount);
-        float step = Mathf.PI * 2f / n;
+        if (slotCount == 0) return;
+
+        // Ring space: each slot takes space proportional to its size
+        float total = 0f;
+        for (int i = 0; i < slotCount; i++) { weights[i] = SlotWeight(i); total += weights[i]; }
+        if (total > 0.0001f)
+        {
+            float cum = 0f;
+            for (int i = 0; i < slotCount; i++)
+            {
+                centers[i] = (cum + weights[i] * 0.5f) / total * TAU;
+                cum += weights[i];
+            }
+        }
+        else
+        {
+            for (int i = 0; i < slotCount; i++) centers[i] = 0f;
+        }
+
+        float focusAngle = FocusAngle(ringPos);
         float time = Now;
         int front = FrontIndex;
-        const float TAU = Mathf.PI * 2f;
-
         sortBuffer.Clear();
 
-        for (int i = 0; i < shownCount && i < rt.Length; i++)
+        for (int i = 0; i < slotCount; i++)
         {
-            var r = rt[i];
-            if (r == null) continue;
+            Visual v = ActiveVisual(i);
+            if (v == null) continue;
+            bool isMark = v == marks[i];
 
             // Ring position
-            float a = (i - ringPos) * step;
+            float a = centers[i] - focusAngle;
             float cos = Mathf.Cos(a);
             float depth = (cos + 1f) * 0.5f; // 1 = front, 0 = back
-            r.depth = depth;
+            v.depth = depth;
             Vector2 pos = ringCenter + new Vector2(Mathf.Sin(a) * ringRadius.x, -cos * ringRadius.y);
             float ringScale = Mathf.Lerp(backScale, frontScale, depth);
+            float size = isMark ? questionMarkSize : 1f;
 
             // Floating
             Vector2 floatOff = Vector2.zero;
             float sway = 0f, breathe = 1f;
             if (enableFloat)
             {
-                float ph = r.phase;
+                float ph = v.phase;
                 float w = time * floatFrequency * TAU + ph;
                 floatOff = new Vector2(Mathf.Sin(w * 0.5f + ph) * floatAmplitude.x, Mathf.Sin(w) * floatAmplitude.y);
                 sway = Mathf.Sin(time * swayFrequency * TAU + ph * 1.3f) * swayAngle;
                 breathe = 1f + Mathf.Sin(time * breatheFrequency * TAU + ph * 0.7f) * breatheAmount;
             }
 
-            // Pop-in effect
-            Vector3 rScale = Vector3.one;
-            float rAlpha = 1f, rRot = 0f;
-            Vector2 rOff = Vector2.zero;
-            if (r.reveal < 1f)
-            {
-                float p = r.reveal;
-                float e = Ease(revealEase, p, revealCurve);
-                float fade = Mathf.Clamp01(Ease(EaseType.OutQuad, p, null));
-                switch (revealEffect)
-                {
-                    case RevealEffect.Scale: rScale = Vector3.one * e; break;
-                    case RevealEffect.Fade: rAlpha = Mathf.Clamp01(e); break;
-                    case RevealEffect.ScaleAndFade: rScale = Vector3.one * e; rAlpha = fade; break;
-                    case RevealEffect.DropIn: rOff = new Vector2(0f, (1f - e) * revealOffsetDistance); rAlpha = fade; break;
-                    case RevealEffect.RiseUp: rOff = new Vector2(0f, -(1f - e) * revealOffsetDistance); rAlpha = fade; break;
-                    case RevealEffect.SpinIn: rScale = Vector3.one * e; rRot = (1f - e) * revealSpinAngle; rAlpha = fade; break;
-                    case RevealEffect.FlipIn: rScale = new Vector3(e, 1f, 1f); rAlpha = fade; break;
-                }
-            }
+            v.rect.anchoredPosition = pos + floatOff + v.fxOffset;
+            v.rect.localScale = Vector3.Scale(v.baseScale * (ringScale * size * breathe), v.fxScale);
+            v.rect.localRotation = Quaternion.Euler(0f, 0f, sway + v.fxRot);
+            v.group.alpha = v.fxAlpha;
 
-            r.rect.anchoredPosition = pos + floatOff + rOff;
-            r.rect.localScale = Vector3.Scale(r.baseScale * (ringScale * breathe), rScale);
-            r.rect.localRotation = Quaternion.Euler(0f, 0f, sway + rRot);
-            r.group.alpha = rAlpha;
-
-            // Only the front button receives pointer clicks
-            r.group.blocksRaycasts = (i == front) && !r.revealing && !inputLocked && !isLoading;
+            // Only the front, unlocked level button receives pointer clicks
+            v.group.blocksRaycasts = !isMark && i == front && states[i] == SlotState.Unlocked && !inputLocked && !isLoading;
 
             // Dimming
             float targetDim = (i == front) ? 0f : 1f;
-            r.dim = dimDuration > 0f ? Mathf.MoveTowards(r.dim, targetDim, dt / dimDuration) : targetDim;
-            if (!Mathf.Approximately(r.dim, r.appliedDim)) ApplyColors(r);
+            v.dim = dimDuration > 0f ? Mathf.MoveTowards(v.dim, targetDim, dt / dimDuration) : targetDim;
+            if (!Mathf.Approximately(v.dim, v.appliedDim)) ApplyColors(v);
 
-            sortBuffer.Add(i);
+            sortBuffer.Add(v);
         }
 
         // Front/back occlusion: closer items get a higher sibling index (drawn later, on top)
         if (canSort && sortBuffer.Count > 1)
         {
-            sortBuffer.Sort(depthComparer);
+            sortBuffer.Sort(DepthComparer);
             for (int k = 0; k < sortBuffer.Count; k++)
             {
-                var rect = rt[sortBuffer[k]].rect;
+                var rect = sortBuffer[k].rect;
                 int want = siblingBase + k;
                 if (rect.GetSiblingIndex() != want) rect.SetSiblingIndex(want);
             }
         }
     }
 
-    void ApplyColors(OptionRuntime r)
+    void ApplyColors(Visual v)
     {
-        float k = Mathf.SmoothStep(0f, 1f, r.dim);
-        for (int j = 0; j < r.graphics.Length; j++)
+        float k = Mathf.SmoothStep(0f, 1f, v.dim);
+        for (int j = 0; j < v.graphics.Length; j++)
         {
-            if (r.graphics[j] == null) continue;
-            Color c = r.baseColors[j];
-            r.graphics[j].color = Color.Lerp(c, c * dimColor, k);
+            if (v.graphics[j] == null) continue;
+            Color c = v.baseColors[j];
+            v.graphics[j].color = Color.Lerp(c, c * dimColor, k);
         }
-        r.appliedDim = r.dim;
+        v.appliedDim = v.dim;
     }
 
     void Play(AudioClip clip)
@@ -698,6 +954,15 @@ public class MenuManager : MonoBehaviour
                 if (go != null) levels[i].button = go.GetComponent<Button>();
             }
         }
+        if (questionMarkTemplate == null)
+            questionMarkTemplate = GameObject.Find(DefaultQuestionMarkName);
+    }
+
+    // Case-insensitive, ignores leading/trailing spaces
+    bool NameMatches(string s)
+    {
+        if (string.IsNullOrEmpty(s) || string.IsNullOrEmpty(supermanButtonName)) return false;
+        return string.Equals(s.Trim(), supermanButtonName.Trim(), System.StringComparison.OrdinalIgnoreCase);
     }
 
     static float FMod(float a, float n) => a - n * Mathf.Floor(a / n);
@@ -711,8 +976,14 @@ public class MenuManager : MonoBehaviour
             case EaseType.InQuad: return x * x;
             case EaseType.OutQuad: return 1f - (1f - x) * (1f - x);
             case EaseType.InOutQuad: return x < 0.5f ? 2f * x * x : 1f - Mathf.Pow(-2f * x + 2f, 2f) / 2f;
+            case EaseType.InCubic: return x * x * x;
             case EaseType.OutCubic: return 1f - Mathf.Pow(1f - x, 3f);
             case EaseType.InOutCubic: return x < 0.5f ? 4f * x * x * x : 1f - Mathf.Pow(-2f * x + 2f, 3f) / 2f;
+            case EaseType.InBack:
+                {
+                    const float c1 = 1.70158f, c3 = c1 + 1f;
+                    return c3 * x * x * x - c1 * x * x;
+                }
             case EaseType.OutBack:
                 {
                     const float c1 = 1.70158f, c3 = c1 + 1f;
@@ -796,32 +1067,35 @@ public class MenuManagerEditor : Editor
         EditorGUILayout.LabelField("== Test Tools ==", EditorStyles.boldLabel);
         EditorGUILayout.HelpBox(
             $"Unlocked: {unlockedClamped} / {n}{(unlocked > n ? " (all cleared)" : "")}\n" +
-            $"Pop-in already played: {revealed}\n" +
+            $"Unlock sequence already played: {revealed}\n" +
             $"Last launched: level {last + 1}\n" +
             $"Menu scene: {MenuManager.MenuScene}" +
-            (Application.isPlaying ? $"\nCurrent front: level {m.FrontIndex + 1}" : ""),
+            (Application.isPlaying ? $"\nCurrent front: slot {m.FrontIndex + 1}\nSupermanSelected: {MenuManager.SupermanSelected}" : ""),
             MessageType.Info);
+
+        if (m.questionMarkTemplate == null)
+            EditorGUILayout.HelpBox("No questionMarkTemplate assigned; locked levels will be hidden.", MessageType.Warning);
 
         if (GUILayout.Button("Reset Progress (simulate first launch)"))
             Set(m, 1, 0, 0);
 
-        if (GUILayout.Button("Simulate Clear: Unlock Next Level (with pop-in)"))
+        if (GUILayout.Button("Simulate Clear: Unlock Next Level (with sequence)"))
             Set(m, Mathf.Min(unlockedClamped + 1, n), Mathf.Min(revealed, unlockedClamped), last);
 
-        if (GUILayout.Button("Replay Latest Level Pop-in"))
+        if (GUILayout.Button("Replay Latest Level Unlock Sequence"))
             Set(m, unlockedClamped, unlockedClamped - 1, last);
 
         EditorGUILayout.Space(4);
         targetLevel = EditorGUILayout.IntSlider("Unlock Up To Level", targetLevel, 1, n);
         using (new EditorGUILayout.HorizontalScope())
         {
-            if (GUILayout.Button("Apply (with pop-in)"))
+            if (GUILayout.Button("Apply (with sequence)"))
                 Set(m, targetLevel, Mathf.Min(revealed, targetLevel), last);
-            if (GUILayout.Button("Apply (no pop-in)"))
+            if (GUILayout.Button("Apply (no sequence)"))
                 Set(m, targetLevel, targetLevel, last);
         }
 
-        if (GUILayout.Button("Unlock All (with pop-in)"))
+        if (GUILayout.Button("Unlock All (with sequence)"))
             Set(m, n, Mathf.Min(revealed, n), last);
 
         EditorGUILayout.Space(4);
