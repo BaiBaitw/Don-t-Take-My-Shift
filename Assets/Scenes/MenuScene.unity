@@ -541,9 +541,9 @@ SpriteRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
-  m_SortingLayerID: 446348057
-  m_SortingLayer: 2
-  m_SortingOrder: 0
+  m_SortingLayerID: 914950051
+  m_SortingLayer: 1
+  m_SortingOrder: 2
   m_Sprite: {fileID: 8493320430147709555, guid: 4882279b99b89ef4cb49cbfe9907deb1, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -566,6 +566,37 @@ Transform:
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -0.04, y: -4.02, z: 0}
   m_LocalScale: {x: 2.5052674, y: 2.5052674, z: 2.5052674}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &228128455
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 228128456}
+  m_Layer: 0
+  m_Name: RobotContainer
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &228128456
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 228128455}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.89806885, y: -3.5043383, z: -0.023995057}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -690,6 +721,82 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!1 &438388236
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 438388237}
+  - component: {fileID: 438388238}
+  m_Layer: 0
+  m_Name: WalkingRobotManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &438388237
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 438388236}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.041639723, y: -0.43257213, z: -0.055926662}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &438388238
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 438388236}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a2ac04f560a6c3248aed886dc6bbbede, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  walkingRobotPrefab: {fileID: 8641619221347293222, guid: 55655dc75a2d2734fb2971ae16f7bb41, type: 3}
+  robotContainer: {fileID: 228128456}
+  menuManager: {fileID: 167285158}
+  playerWalk: {fileID: 216260717}
+  inFrontOfPlayerChance: 0.3
+  sortingOffset: 1
+  followPlayerSorting: 1
+  progressSource: 0
+  robotCountByProgress: 000000000a000000140000001e00000032000000460000005a00000078000000
+  watchProgress: 1
+  watchInterval: 0.5
+  circleCenter: {x: 0.9, y: -28.6}
+  circleRadius: 27.4
+  surfaceOffset: 0.7
+  radiusJitter: 0
+  minSpeed: 1
+  maxSpeed: 3
+  counterClockwiseChance: 0.4
+  alignToSurface: 1
+  flipByDirection: 1
+  spriteFacesRight: 1
+  useUnscaledTime: 1
+  guaranteeDirectionRatio: 1
+  cancelContainerRotation: 0
+  noSpawnAboveHeight: 0.9364806
+  minSpawnSpacing: 12
+  showGizmos: 1
+  circleColor: {r: 0.2, g: 0.9, b: 1, a: 1}
+  noSpawnArcColor: {r: 1, g: 0.3, b: 0.3, a: 1}
+  noSpawnLineColor: {r: 1, g: 0.85, b: 0.2, a: 1}
+  lineExtend: 0.25
+  gizmoSegments: 128
 --- !u!1 &438431733
 GameObject:
   m_ObjectHideFlags: 0
@@ -2084,3 +2191,5 @@ SceneRoots:
   - {fileID: 438564033}
   - {fileID: 216260720}
   - {fileID: 1265975931}
+  - {fileID: 438388237}
+  - {fileID: 228128456}
