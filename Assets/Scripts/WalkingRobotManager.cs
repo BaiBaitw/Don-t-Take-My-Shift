@@ -91,6 +91,15 @@ public class WalkingRobotManager : MonoBehaviour
     [Tooltip("Turn on if robotContainer itself rotates (spinning Earth).\nOn: speeds / directions are as seen on screen, so the container's spin doesn't drag every robot the same way.\nOff: speeds are relative to the container, and its spin is added on top.")]
     public bool cancelContainerRotation = false;
 
+    // ------------------------- Animation -------------------------
+    [Header("Animation (Animators on the robot or its children)")]
+    [Tooltip("Start each robot's default animation at a random point so they don't move in sync")]
+    public bool randomizeAnimationStart = true;
+    [Tooltip("Random Animator playback speed, minimum (1 = normal)")]
+    public float animationSpeedMin = 1f;
+    [Tooltip("Random Animator playback speed, maximum (1 = normal). Set min = max = 1 to keep normal speed")]
+    public float animationSpeedMax = 1f;
+
     // ------------------------- Spawn area -------------------------
     [Header("Spawn Area")]
     [Tooltip("Robots never SPAWN above this line (they can still walk there).\nRelative to the radius: 1 = top of circle, 0 = center, -1 = bottom.")]
@@ -162,6 +171,8 @@ public class WalkingRobotManager : MonoBehaviour
         if (circleRadius < 0.01f) circleRadius = 0.01f;
         if (gizmoSegments < 16) gizmoSegments = 16;
         if (watchInterval < 0.05f) watchInterval = 0.05f;
+        if (animationSpeedMin < 0f) animationSpeedMin = 0f;
+        if (animationSpeedMax < animationSpeedMin) animationSpeedMax = animationSpeedMin;
     }
 
     void Start()
@@ -301,7 +312,31 @@ public class WalkingRobotManager : MonoBehaviour
         robots.Add(r);
         ApplyTransform(r);
         ApplySorting(r);
+        RandomizeAnimators(go);
         return true;
+    }
+
+    // ------------------------- Animation -------------------------
+    void RandomizeAnimators(GameObject go)
+    {
+        var animators = go.GetComponentsInChildren<Animator>(true);
+        if (animators.Length == 0) return;
+
+        // Same random values for every Animator on one robot, so its parts stay in sync with each other
+        float startTime = Random.value;
+        float speed = Random.Range(animationSpeedMin, animationSpeedMax);
+
+        foreach (var anim in animators)
+        {
+            if (anim == null || anim.runtimeAnimatorController == null) continue;
+            if (animationSpeedMin != 1f || animationSpeedMax != 1f) anim.speed = speed;
+            if (!randomizeAnimationStart || !anim.isActiveAndEnabled) continue;
+
+            // stateNameHash 0 = "the current (default) state": jump to a random normalized time in it
+            for (int layer = 0; layer < anim.layerCount; layer++)
+                anim.Play(0, layer, startTime);
+            anim.Update(0f); // apply immediately so the first frame already shows the random pose
+        }
     }
 
     bool PickClockwise()
