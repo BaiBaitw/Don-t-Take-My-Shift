@@ -230,6 +230,31 @@ MonoBehaviour:
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
   robotFacesRightByDefault: 1
+  robotUpMoveCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  robotUpMoveDuration: 0
   backWalkParameter: BackWalk
   spawnUnderNpcParent: 1
   matchNpcSorting: 1
@@ -472,6 +497,31 @@ MonoBehaviour:
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
   robotFacesRightByDefault: 1
+  robotUpMoveCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  robotUpMoveDuration: 0
   backWalkParameter: BackWalk
   spawnUnderNpcParent: 1
   matchNpcSorting: 1
@@ -769,6 +819,31 @@ MonoBehaviour:
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
   robotFacesRightByDefault: 1
+  robotUpMoveCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  robotUpMoveDuration: 0
   backWalkParameter: BackWalk
   spawnUnderNpcParent: 1
   matchNpcSorting: 1
@@ -788,6 +863,18 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 581554790}
     m_Modifications:
+    - target: {fileID: 2197211169056622217, guid: fc3c20e6c727572468b671fb65831c0f, type: 3}
+      propertyPath: robotSpawnDistance
+      value: 3.09
+      objectReference: {fileID: 0}
+    - target: {fileID: 2197211169056622217, guid: fc3c20e6c727572468b671fb65831c0f, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].inSlope
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 2197211169056622217, guid: fc3c20e6c727572468b671fb65831c0f, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].outSlope
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 3200440204871024883, guid: fc3c20e6c727572468b671fb65831c0f, type: 3}
       propertyPath: m_LocalPosition.x
       value: -5.83
@@ -1062,6 +1149,18 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 581554790}
     m_Modifications:
+    - target: {fileID: 4887233684504516404, guid: fbf0ac8296985584bb084583c45f8e86, type: 3}
+      propertyPath: robotMiddleDownDistance
+      value: 2.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4887233684504516404, guid: fbf0ac8296985584bb084583c45f8e86, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].inSlope
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 4887233684504516404, guid: fbf0ac8296985584bb084583c45f8e86, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].outSlope
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 5554863908566533785, guid: fbf0ac8296985584bb084583c45f8e86, type: 3}
       propertyPath: m_Name
       value: staff_13
@@ -1227,6 +1326,31 @@ MonoBehaviour:
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
   robotFacesRightByDefault: 1
+  robotUpMoveCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  robotUpMoveDuration: 0
   backWalkParameter: BackWalk
   spawnUnderNpcParent: 1
   matchNpcSorting: 1
@@ -1877,6 +2001,18 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 581554790}
     m_Modifications:
+    - target: {fileID: 894311701253558280, guid: 666c1f72633c0d84a80c8a0a093ec80e, type: 3}
+      propertyPath: robotSpawnDistance
+      value: 3.17
+      objectReference: {fileID: 0}
+    - target: {fileID: 894311701253558280, guid: 666c1f72633c0d84a80c8a0a093ec80e, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].inSlope
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 894311701253558280, guid: 666c1f72633c0d84a80c8a0a093ec80e, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].outSlope
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 2711153432734379312, guid: 666c1f72633c0d84a80c8a0a093ec80e, type: 3}
       propertyPath: m_LocalPosition.x
       value: 7.57
@@ -2298,6 +2434,18 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 581554790}
     m_Modifications:
+    - target: {fileID: 1583921299135789375, guid: 4cdae36773fd1c745bcf5a780e702b00, type: 3}
+      propertyPath: robotMiddleDownDistance
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 1583921299135789375, guid: 4cdae36773fd1c745bcf5a780e702b00, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].inSlope
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 1583921299135789375, guid: 4cdae36773fd1c745bcf5a780e702b00, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].outSlope
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 4091891295111752164, guid: 4cdae36773fd1c745bcf5a780e702b00, type: 3}
       propertyPath: m_Name
       value: staff_14
@@ -2616,6 +2764,31 @@ MonoBehaviour:
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
   robotFacesRightByDefault: 1
+  robotUpMoveCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  robotUpMoveDuration: 0
   backWalkParameter: BackWalk
   spawnUnderNpcParent: 1
   matchNpcSorting: 1
@@ -3046,6 +3219,18 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 581554790}
     m_Modifications:
+    - target: {fileID: 58844049119964142, guid: ba452e95406047141a0ffb507f8eb6b0, type: 3}
+      propertyPath: robotMiddleDownDistance
+      value: 3.59
+      objectReference: {fileID: 0}
+    - target: {fileID: 58844049119964142, guid: ba452e95406047141a0ffb507f8eb6b0, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].inSlope
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 58844049119964142, guid: ba452e95406047141a0ffb507f8eb6b0, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].outSlope
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 3767100023934648768, guid: ba452e95406047141a0ffb507f8eb6b0, type: 3}
       propertyPath: m_LocalPosition.x
       value: 4.29
@@ -3151,6 +3336,18 @@ PrefabInstance:
     - target: {fileID: 2993156771979904243, guid: a583a31580c234b40bc172584a9947c4, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4656065040870566376, guid: a583a31580c234b40bc172584a9947c4, type: 3}
+      propertyPath: robotSpawnDistance
+      value: 2.89
+      objectReference: {fileID: 0}
+    - target: {fileID: 4656065040870566376, guid: a583a31580c234b40bc172584a9947c4, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].inSlope
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 4656065040870566376, guid: a583a31580c234b40bc172584a9947c4, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].outSlope
+      value: 2
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -3578,6 +3775,31 @@ MonoBehaviour:
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
   robotFacesRightByDefault: 1
+  robotUpMoveCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  robotUpMoveDuration: 0
   backWalkParameter: BackWalk
   spawnUnderNpcParent: 1
   matchNpcSorting: 1
@@ -3705,6 +3927,31 @@ MonoBehaviour:
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
   robotFacesRightByDefault: 1
+  robotUpMoveCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  robotUpMoveDuration: 0
   backWalkParameter: BackWalk
   spawnUnderNpcParent: 1
   matchNpcSorting: 1
@@ -3827,6 +4074,31 @@ MonoBehaviour:
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
   robotFacesRightByDefault: 1
+  robotUpMoveCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  robotUpMoveDuration: 0
   backWalkParameter: BackWalk
   spawnUnderNpcParent: 1
   matchNpcSorting: 1
@@ -4003,7 +4275,7 @@ SpriteRenderer:
   m_SortingLayerID: 914950051
   m_SortingLayer: 1
   m_SortingOrder: 3
-  m_Sprite: {fileID: -2311659948842064771, guid: 9e33f97ab3132634989c68633c195b0c, type: 3}
+  m_Sprite: {fileID: -453698709589402798, guid: 4882279b99b89ef4cb49cbfe9907deb1, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -4024,7 +4296,7 @@ Animator:
   m_GameObject: {fileID: 915582420}
   m_Enabled: 1
   m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 9100000, guid: da9414d5c4a71194fbc74881445a39cd, type: 2}
+  m_Controller: {fileID: 9100000, guid: 1efd0649b098b724289e856cb067e6bd, type: 2}
   m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
@@ -4049,6 +4321,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   myAnimator: {fileID: 915582423}
+  scamScene: 1
   robot: {fileID: 7711758881537971445, guid: 00f0e69e479a1bc4c8b6ff1dab6f7681, type: 3}
   robotEntrySide: 4
   robotSpawnMinDelay: 0
@@ -4059,15 +4332,56 @@ MonoBehaviour:
   robotFacesRightByDefault: 1
   backWalkParameter: BackWalk
   spawnUnderPlayerParent: 1
+  robotUpDuration: 1
+  robotUpCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 2
+      outSlope: 2
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   robotMiddleSideDistance: 1.78
   robotMiddleDownDistance: 5.35
   matchPlayerSorting: 1
   robotSortingOrderOffset: 0
+  guardSortingOrderOffset: 0
   playerLeaveDelay: 2.5
   playerWalkDistance: 1.46
   playerWalkSpeed: 2
   playerFacesRightByDefault: 1
   keepFlippedOnLose: 0
+  guard: {fileID: 9155835704089432961, guid: 6a4182081d5c3b346ac166904196405b, type: 3}
+  guardSpawnDelay: 0
+  guardSideDistance: 1.78
+  guardSpawnDownDistance: 3.72
+  guardMoveSpeed: 2
+  guardPauseAtCorner: 0
+  guardTouchDistance: 0.5
+  guardFacesRightByDefault: 1
+  freezePlayerAnimationBeforeGuard: 0
+  scamPlayerStartDelay: 0
+  scamPlayerLeftDistance: 1.61
+  scamPlayerLeftSpeed: 2
+  scamPlayerPauseBeforeDown: 0
+  scamPlayerDownDistance: 7.07
+  scamPlayerDownSpeed: 2
   showGizmos: 1
 --- !u!1 &1012609155
 GameObject:
@@ -4180,6 +4494,31 @@ MonoBehaviour:
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
   robotFacesRightByDefault: 1
+  robotUpMoveCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  robotUpMoveDuration: 0
   backWalkParameter: BackWalk
   spawnUnderNpcParent: 1
   matchNpcSorting: 1
@@ -4389,6 +4728,31 @@ MonoBehaviour:
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
   robotFacesRightByDefault: 1
+  robotUpMoveCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  robotUpMoveDuration: 0
   backWalkParameter: BackWalk
   spawnUnderNpcParent: 1
   matchNpcSorting: 1
@@ -4961,6 +5325,18 @@ PrefabInstance:
       propertyPath: m_Name
       value: staff_11
       objectReference: {fileID: 0}
+    - target: {fileID: 7807262566349472690, guid: 496c47762773a5846b977ede77c06708, type: 3}
+      propertyPath: robotSpawnDistance
+      value: 2.84
+      objectReference: {fileID: 0}
+    - target: {fileID: 7807262566349472690, guid: 496c47762773a5846b977ede77c06708, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].inSlope
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 7807262566349472690, guid: 496c47762773a5846b977ede77c06708, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].outSlope
+      value: 2
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -5169,6 +5545,31 @@ MonoBehaviour:
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
   robotFacesRightByDefault: 1
+  robotUpMoveCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  robotUpMoveDuration: 0
   backWalkParameter: BackWalk
   spawnUnderNpcParent: 1
   matchNpcSorting: 1
@@ -5604,6 +6005,18 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 581554790}
     m_Modifications:
+    - target: {fileID: 216780084740235425, guid: 20ccbcf11736dd949a7be205a6831338, type: 3}
+      propertyPath: robotMiddleDownDistance
+      value: 3.76
+      objectReference: {fileID: 0}
+    - target: {fileID: 216780084740235425, guid: 20ccbcf11736dd949a7be205a6831338, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].inSlope
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 216780084740235425, guid: 20ccbcf11736dd949a7be205a6831338, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].outSlope
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 792709610254512176, guid: 20ccbcf11736dd949a7be205a6831338, type: 3}
       propertyPath: m_LocalPosition.x
       value: -2.37
@@ -5879,6 +6292,18 @@ PrefabInstance:
     - target: {fileID: 2429149304784217986, guid: 0be163d50213afc4ebdc1a006691aad8, type: 3}
       propertyPath: m_Name
       value: staff_12
+      objectReference: {fileID: 0}
+    - target: {fileID: 5601783748119040536, guid: 0be163d50213afc4ebdc1a006691aad8, type: 3}
+      propertyPath: robotMiddleDownDistance
+      value: 2.46
+      objectReference: {fileID: 0}
+    - target: {fileID: 5601783748119040536, guid: 0be163d50213afc4ebdc1a006691aad8, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].inSlope
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 5601783748119040536, guid: 0be163d50213afc4ebdc1a006691aad8, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].outSlope
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 8492741800124540860, guid: 0be163d50213afc4ebdc1a006691aad8, type: 3}
       propertyPath: m_LocalPosition.x
@@ -6381,6 +6806,31 @@ MonoBehaviour:
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
   robotFacesRightByDefault: 1
+  robotUpMoveCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  robotUpMoveDuration: 0
   backWalkParameter: BackWalk
   spawnUnderNpcParent: 1
   matchNpcSorting: 1
@@ -6788,6 +7238,31 @@ MonoBehaviour:
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
   robotFacesRightByDefault: 1
+  robotUpMoveCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  robotUpMoveDuration: 0
   backWalkParameter: BackWalk
   spawnUnderNpcParent: 1
   matchNpcSorting: 1
@@ -7380,6 +7855,18 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 581554790}
     m_Modifications:
+    - target: {fileID: 4837704606541163478, guid: f366eb292f0e57943b40ef8c8331dea6, type: 3}
+      propertyPath: robotSpawnDistance
+      value: 3.12
+      objectReference: {fileID: 0}
+    - target: {fileID: 4837704606541163478, guid: f366eb292f0e57943b40ef8c8331dea6, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].inSlope
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 4837704606541163478, guid: f366eb292f0e57943b40ef8c8331dea6, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].outSlope
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 5717423377617454263, guid: f366eb292f0e57943b40ef8c8331dea6, type: 3}
       propertyPath: m_LocalPosition.x
       value: -5.86
@@ -7656,6 +8143,18 @@ PrefabInstance:
       propertyPath: m_Name
       value: staff_05
       objectReference: {fileID: 0}
+    - target: {fileID: 2542778010173362969, guid: 78919b221a75d2a42a1ad7c5632f8c4d, type: 3}
+      propertyPath: robotMiddleDownDistance
+      value: 4.88
+      objectReference: {fileID: 0}
+    - target: {fileID: 2542778010173362969, guid: 78919b221a75d2a42a1ad7c5632f8c4d, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].inSlope
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 2542778010173362969, guid: 78919b221a75d2a42a1ad7c5632f8c4d, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].outSlope
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 8780000170726579683, guid: 78919b221a75d2a42a1ad7c5632f8c4d, type: 3}
       propertyPath: m_LocalPosition.x
       value: 4.23
@@ -7806,6 +8305,18 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 581554790}
     m_Modifications:
+    - target: {fileID: 2557657880291554584, guid: df93baccfc742314695f747f7aa25bb8, type: 3}
+      propertyPath: robotMiddleDownDistance
+      value: 5.16
+      objectReference: {fileID: 0}
+    - target: {fileID: 2557657880291554584, guid: df93baccfc742314695f747f7aa25bb8, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].inSlope
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 2557657880291554584, guid: df93baccfc742314695f747f7aa25bb8, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].outSlope
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 5205398905041243127, guid: df93baccfc742314695f747f7aa25bb8, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0.88
@@ -7911,6 +8422,18 @@ PrefabInstance:
     - target: {fileID: 987800511722884131, guid: 5115ff8c0cad48a4fbdefa75817c0e9d, type: 3}
       propertyPath: m_Name
       value: staff_03
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805465686348351066, guid: 5115ff8c0cad48a4fbdefa75817c0e9d, type: 3}
+      propertyPath: robotMiddleDownDistance
+      value: 5.21
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805465686348351066, guid: 5115ff8c0cad48a4fbdefa75817c0e9d, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].inSlope
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805465686348351066, guid: 5115ff8c0cad48a4fbdefa75817c0e9d, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].outSlope
+      value: 2
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -8153,6 +8676,31 @@ MonoBehaviour:
   robotSpawnDistance: 10
   robotTargetOffset: {x: 0, y: 0, z: 0}
   robotFacesRightByDefault: 1
+  robotUpMoveCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  robotUpMoveDuration: 0
   backWalkParameter: BackWalk
   spawnUnderNpcParent: 1
   matchNpcSorting: 1
@@ -8209,6 +8757,18 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 581554790}
     m_Modifications:
+    - target: {fileID: 3023681545598421917, guid: 296f0a9197bed224abc86dec1e382413, type: 3}
+      propertyPath: robotSpawnDistance
+      value: 3.06
+      objectReference: {fileID: 0}
+    - target: {fileID: 3023681545598421917, guid: 296f0a9197bed224abc86dec1e382413, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].inSlope
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3023681545598421917, guid: 296f0a9197bed224abc86dec1e382413, type: 3}
+      propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].outSlope
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 5729410723788758140, guid: 296f0a9197bed224abc86dec1e382413, type: 3}
       propertyPath: m_Name
       value: staff_06

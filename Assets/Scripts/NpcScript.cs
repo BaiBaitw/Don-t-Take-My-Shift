@@ -57,6 +57,14 @@ public class NpcScript : MonoBehaviour
              "If the robot looks backwards, toggle this.")]
     public bool robotFacesRightByDefault = true;
 
+    [Tooltip("Speed curve for the upward move (Middle-Left / Middle-Right).\n" +
+             "X = time (0 = start, 1 = end), Y = progress from A to B (0 = A, 1 = B).\n" +
+             "A straight diagonal line = linear movement.")]
+    public AnimationCurve robotUpMoveCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+
+    [Tooltip("Duration (seconds) of the upward move. 0 = use Robot Move Speed to calculate it.")]
+    public float robotUpMoveDuration = 0f;
+
     [Tooltip("Animator bool parameter set to true while the robot moves upward (bottom to top).")]
     public string backWalkParameter = "BackWalk";
 
@@ -250,21 +258,51 @@ public class NpcScript : MonoBehaviour
                 isWalking = true;
             }
 
-            while (robotTransform != null &&
-                   (robotTransform.position - waypoint).sqrMagnitude > 0.0001f)
+            if (movingUp && robotUpMoveCurve != null && robotUpMoveCurve.length > 0)
             {
-                robotTransform.position = Vector3.MoveTowards(
-                    robotTransform.position, waypoint, robotMoveSpeed * Time.deltaTime);
+                // Upward move: follow the speed curve from A (start) to B (waypoint)
+                Vector3 startPos = robotTransform.position;
+                float duration = robotUpMoveDuration > 0f
+                    ? robotUpMoveDuration
+                    : Vector3.Distance(startPos, waypoint) / Mathf.Max(robotMoveSpeed, 0.0001f);
 
-                // Start the NPC exit once the robot is close enough to its stop position
-                if (!npcExitStarted &&
-                    Vector3.Distance(robotTransform.position, target) <= npcExitTriggerDistance)
+                float elapsed = 0f;
+                while (robotTransform != null && elapsed < duration)
                 {
-                    npcExitStarted = true;
-                    StartCoroutine(NpcExitRoutine(side, isMiddle));
-                }
+                    elapsed += Time.deltaTime;
+                    float t = Mathf.Clamp01(elapsed / duration);
+                    float progress = robotUpMoveCurve.Evaluate(t);
+                    robotTransform.position = Vector3.LerpUnclamped(startPos, waypoint, progress);
 
-                yield return null;
+                    if (!npcExitStarted &&
+                        Vector3.Distance(robotTransform.position, target) <= npcExitTriggerDistance)
+                    {
+                        npcExitStarted = true;
+                        StartCoroutine(NpcExitRoutine(side, isMiddle));
+                    }
+
+                    yield return null;
+                }
+            }
+            else
+            {
+                // Linear move
+                while (robotTransform != null &&
+                       (robotTransform.position - waypoint).sqrMagnitude > 0.0001f)
+                {
+                    robotTransform.position = Vector3.MoveTowards(
+                        robotTransform.position, waypoint, robotMoveSpeed * Time.deltaTime);
+
+                    // Start the NPC exit once the robot is close enough to its stop position
+                    if (!npcExitStarted &&
+                        Vector3.Distance(robotTransform.position, target) <= npcExitTriggerDistance)
+                    {
+                        npcExitStarted = true;
+                        StartCoroutine(NpcExitRoutine(side, isMiddle));
+                    }
+
+                    yield return null;
+                }
             }
 
             if (robotTransform == null)
