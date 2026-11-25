@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 using TMPro;
@@ -13,7 +14,14 @@ using UnityEditor;
 /// </summary>
 public class BossManager : MonoBehaviour
 {
-    public enum MoveSide { Left, Right, Down }
+    public enum MoveSide { Left, Right, Random }
+    static readonly MoveSide[] RealSides = { MoveSide.Left, MoveSide.Right };
+
+    /// <summary>Chat bubble appear animation (scales from small to original size)</summary>
+    public enum ChatShowAnim { Linear, EaseOut, Pop, Elastic }
+
+    /// <summary>Chat bubble disappear animation</summary>
+    public enum ChatHideAnim { Instant, Shrink, ShrinkBack, Fade, ShrinkAndFade }
 
     [System.Serializable]
     public struct RandomRange
@@ -29,8 +37,12 @@ public class BossManager : MonoBehaviour
     public Animator animator;
     [Tooltip("Object holding the GameManager script")]
     public GameObject gameManager;
-    [Tooltip("Boss speech bubble (hidden by default). A child must have a TextMeshPro - Text (UI)")]
-    public GameObject bossSpeech;
+    [Tooltip("Boss speech bubble PREFAB (RectTransform). A child must have a TextMeshPro - Text (UI)")]
+    public GameObject bossSpeechPrefab;
+    [Tooltip("Canvas the bubble is spawned under (as its last child). If empty, the first Canvas in the scene is used")]
+    public Canvas targetCanvas;
+    [Tooltip("Chat bubble ROOT under the Boss object (hidden by default). Scales around its own origin. Text / sprites can be children")]
+    public GameObject chatBubble;
 
     // --------- Enter / Exit ---------
     [Header("Enter Settings")]
@@ -45,6 +57,18 @@ public class BossManager : MonoBehaviour
 
     [Header("Move Speed (units/sec)")]
     public float moveSpeed = 3f;
+
+    [Header("Walk Animation")]
+    [Tooltip("Chance of using WalknSpeech instead of Walk when moving (0 = always Walk, 1 = always WalknSpeech)")]
+    [Range(0f, 1f)] public float walknSpeechChance = 0.5f;
+    [Tooltip("Print which walk animation was chosen to the Console")]
+    public bool debugLog = false;
+
+    [Header("Facing")]
+    [Tooltip("Flip the Boss sprites horizontally while moving right (chatBubble is never flipped)")]
+    public bool flipWhenMovingRight = true;
+    [Tooltip("Root of the Boss visuals to flip. If empty, the Animator's object is used")]
+    public Transform flipRoot;
 
     // --------- Durations ---------
     [Header("Durations in seconds (min / max)")]
@@ -83,6 +107,41 @@ public class BossManager : MonoBehaviour
         "Headcount: zero needed.",
     };
 
+    // --------- Chat Bubble ---------
+    [Header("Chat Bubble (shown on WalknSpeech / Speech)")]
+    [Tooltip("Appear animation: scales from 0 to the original size")]
+    public ChatShowAnim chatShowAnim = ChatShowAnim.Pop;
+    [Min(0f)] public float chatShowDuration = 0.25f;
+    [Tooltip("How long the bubble stays fully shown (seconds)")]
+    [Min(0f)] public float chatDisplayTime = 2f;
+    public ChatHideAnim chatHideAnim = ChatHideAnim.ShrinkAndFade;
+    [Min(0f)] public float chatHideDuration = 0.2f;
+
+    [TextArea(2, 2)]
+    public string[] chatLines = new string[]
+    {
+        "Work time!\nHit goals!",
+        "Raises are\ncoming!",
+        "Early bird\ngets worm!",
+        "Go team!\nYou got it",
+        "Big bonus\nthis year!",
+        "Overtime?\nIt's fun!",
+        "We're all\nfamily!",
+        "Dream big,\nwork hard!",
+        "No limits!\nOnly KPIs!",
+        "Promotion\nsoon, OK?",
+        "Push hard!\nWin big!",
+        "Best team\never!",
+        "I believe\nin you!",
+        "Sales up!\nMood up!",
+        "Weekends?\nOptional!",
+        "Teamwork\nwins!",
+        "Let's make\nmoney!",
+        "Hard work\npays off!",
+        "Good vibes\nonly!",
+        "Coffee's\non me!",
+    };
+
     // --------- Animator Parameters ---------
     static readonly int WalkHash = Animator.StringToHash("Walk");
     static readonly int WalknSpeechHash = Animator.StringToHash("WalknSpeech");
@@ -94,7 +153,24 @@ public class BossManager : MonoBehaviour
     Vector3 homePosition;          // Home (stop) point
     bool homeCached;
     Coroutine actRoutine, sayRoutine, bubbleRoutine;
-    TMP_Text speechText;
+    GameObject bossSpeechInstance;   // Currently spawned bubble
+
+    // Chat bubble state
+    Coroutine chatRoutine;
+    RectTransform chatRect;
+    bool chatInitialized;
+    CanvasGroup chatGroup;                 // only used if the bubble is UI
+    TMP_Text[] chatTexts;
+    SpriteRenderer[] chatSprites;
+    Color[] chatTextColors, chatSpriteColors;
+    TMP_Text chatText;
+    Vector3 chatOriginalScale = Vector3.one;
+    readonly List<int> usedChatLines = new List<int>();   // Lines already used in this appearance
+
+    MoveSide currentEnterSide, currentExitSide;   // Sides actually used in the current appearance
+    bool sidesResolved;
+
+    SpriteRenderer[] bossSprites;   // Boss sprites to flip (chatBubble excluded)
 
     // =============================================
 
@@ -102,16 +178,57 @@ public class BossManager : MonoBehaviour
     {
         if (animator == null) animator = GetComponent<Animator>();
         CacheHome();
-        if (bossSpeech != null)
-        {
-            speechText = bossSpeech.GetComponentInChildren<TMP_Text>(true);
-            bossSpeech.SetActive(false);
-        }
+        InitChatBubble();
+        CacheBossSprites();
     }
 
-    void Start()
+    void CacheBossSprites()
     {
-        BossAct();
+        Transform root = flipRoot != null ? flipRoot : (animator != null ? animator.transform : transform);
+        var list = new List<SpriteRenderer>();
+        foreach (var sr in root.GetComponentsInChildren<SpriteRenderer>(true))
+        {
+            // Skip anything inside the chat bubble so it never flips
+            if (chatBubble != null && sr.transform.IsChildOf(chatBubble.transform)) continue;
+            list.Add(sr);
+        }
+        bossSprites = list.ToArray();
+    }
+
+    /// <summary>Faces the Boss toward the horizontal move direction (dx > 0 = right). dx == 0 keeps the current facing</summary>
+    void FaceDirection(float dx)
+    {
+        if (bossSprites == null || Mathf.Approximately(dx, 0f)) return;
+        bool movingRight = dx > 0f;
+        bool flip = movingRight ? flipWhenMovingRight : !flipWhenMovingRight;
+        foreach (var sr in bossSprites)
+            if (sr != null) sr.flipX = flip;
+    }
+
+    void InitChatBubble()
+    {
+        if (chatBubble == null) return;
+        chatRect = chatBubble.GetComponent<RectTransform>();
+        chatOriginalScale = chatBubble.transform.localScale;
+        chatText = chatBubble.GetComponentInChildren<TMP_Text>(true);   // includes chatBubble itself
+        chatGroup = chatBubble.GetComponent<CanvasGroup>();
+
+        // For fading: works for TextMeshPro (3D or UI) and SpriteRenderers in the bubble
+        chatTexts = chatBubble.GetComponentsInChildren<TMP_Text>(true);
+        chatTextColors = new Color[chatTexts.Length];
+        for (int i = 0; i < chatTexts.Length; i++) chatTextColors[i] = chatTexts[i].color;
+
+        chatSprites = chatBubble.GetComponentsInChildren<SpriteRenderer>(true);
+        chatSpriteColors = new Color[chatSprites.Length];
+        for (int i = 0; i < chatSprites.Length; i++) chatSpriteColors[i] = chatSprites[i].color;
+
+        chatInitialized = true;
+        chatBubble.SetActive(false);
+    }
+
+    void OnDestroy()
+    {
+        DestroyBubble();
     }
 
     void CacheHome()
@@ -128,7 +245,28 @@ public class BossManager : MonoBehaviour
     {
         CacheHome();
         if (actRoutine != null) StopCoroutine(actRoutine);
+        usedChatLines.Clear();   // New appearance -> lines can be reused again
         actRoutine = StartCoroutine(BossActRoutine());
+    }
+
+    /// <summary>Shows the chat bubble with a random line (not repeated within the same appearance)</summary>
+    public void ShowChatBubble()
+    {
+        if (chatBubble == null) return;
+        if (!chatInitialized) InitChatBubble();
+        if (chatRoutine != null) StopCoroutine(chatRoutine);
+        chatRoutine = StartCoroutine(ChatBubbleRoutine(PickChatLine()));
+    }
+
+    /// <summary>Hides the chat bubble immediately</summary>
+    public void HideChatBubbleImmediate()
+    {
+        if (chatRoutine != null) StopCoroutine(chatRoutine);
+        chatRoutine = null;
+        if (chatBubble == null) return;
+        chatBubble.transform.localScale = chatOriginalScale;
+        SetChatAlpha(1f);
+        chatBubble.SetActive(false);
     }
 
     /// <summary>Plays BossWinsaying for a random duration</summary>
@@ -138,10 +276,11 @@ public class BossManager : MonoBehaviour
         sayRoutine = StartCoroutine(BossSayRoutine());
     }
 
-    /// <summary>Shows the bubble -> calls OnNextButtonClicked() after a delay -> hides it based on nextStageDelay</summary>
+    /// <summary>Spawns the bubble -> calls OnNextButtonClicked() after a delay -> destroys it based on nextStageDelay</summary>
     public void BossBubbleChat()
     {
         if (bubbleRoutine != null) StopCoroutine(bubbleRoutine);
+        DestroyBubble();
         bubbleRoutine = StartCoroutine(BossBubbleRoutine());
     }
 
@@ -149,8 +288,13 @@ public class BossManager : MonoBehaviour
 
     IEnumerator BossActRoutine()
     {
-        Vector3 enterStart = homePosition + SideToDir(enterFrom) * enterDistance;
-        Vector3 exitEnd = homePosition + SideToDir(exitTo) * exitDistance;
+        // Resolve "Random" into a real side for this appearance
+        currentEnterSide = ResolveSide(enterFrom);
+        currentExitSide = ResolveSide(exitTo);
+        sidesResolved = true;
+
+        Vector3 enterStart = homePosition + SideToDir(currentEnterSide) * enterDistance;
+        Vector3 exitEnd = homePosition + SideToDir(currentExitSide) * exitDistance;
 
         // 1. Enter
         transform.position = enterStart;
@@ -170,13 +314,140 @@ public class BossManager : MonoBehaviour
         yield return new WaitForSeconds(idleTime.Get());
 
         // 5. Exit
+        CallGameManager("CameraBackToDefault");
         SetAnim(RandomWalkHash());
         yield return MoveTo(exitEnd);
 
         // 6. Done
         SetAnim(0);
+        HideChatBubbleImmediate();
         actRoutine = null;
         CallOnStartButtonClicked();
+    }
+
+    IEnumerator ChatBubbleRoutine(string line)
+    {
+        if (chatText != null) chatText.text = line;
+        else Debug.LogWarning("[BossManager] No TMP_Text found on chatBubble");
+
+        Transform t = chatBubble.transform;
+        SetChatAlpha(1f);
+        t.localScale = Vector3.zero;
+        chatBubble.SetActive(true);
+
+        // Appear: small -> original size (pivot is bottom-left, so it grows from that corner)
+        float time = 0f;
+        while (time < chatShowDuration)
+        {
+            time += Time.deltaTime;
+            float p = Mathf.Clamp01(time / chatShowDuration);
+            t.localScale = chatOriginalScale * EvaluateShow(chatShowAnim, p);
+            yield return null;
+        }
+        t.localScale = chatOriginalScale;
+
+        // Stay
+        yield return new WaitForSeconds(chatDisplayTime);
+
+        // Disappear
+        if (chatHideAnim != ChatHideAnim.Instant)
+        {
+            time = 0f;
+            while (time < chatHideDuration)
+            {
+                time += Time.deltaTime;
+                float p = Mathf.Clamp01(time / chatHideDuration);
+                switch (chatHideAnim)
+                {
+                    case ChatHideAnim.Shrink:
+                        t.localScale = chatOriginalScale * (1f - EaseInQuad(p));
+                        break;
+                    case ChatHideAnim.ShrinkBack:
+                        t.localScale = chatOriginalScale * (1f - EaseInBack(p));
+                        break;
+                    case ChatHideAnim.Fade:
+                        SetChatAlpha(1f - p);
+                        break;
+                    case ChatHideAnim.ShrinkAndFade:
+                        t.localScale = chatOriginalScale * (1f - EaseInQuad(p));
+                        SetChatAlpha(1f - p);
+                        break;
+                }
+                yield return null;
+            }
+        }
+
+        chatBubble.SetActive(false);
+        t.localScale = chatOriginalScale;
+        SetChatAlpha(1f);
+        chatRoutine = null;
+    }
+
+    /// <summary>Sets the bubble's transparency (multiplies the original alpha)</summary>
+    void SetChatAlpha(float a)
+    {
+        if (chatGroup != null) chatGroup.alpha = a;
+        if (chatTexts != null)
+            for (int i = 0; i < chatTexts.Length; i++)
+            {
+                if (chatTexts[i] == null) continue;
+                Color c = chatTextColors[i]; c.a *= a; chatTexts[i].color = c;
+            }
+        if (chatSprites != null)
+            for (int i = 0; i < chatSprites.Length; i++)
+            {
+                if (chatSprites[i] == null) continue;
+                Color c = chatSpriteColors[i]; c.a *= a; chatSprites[i].color = c;
+            }
+    }
+
+    string PickChatLine()
+    {
+        if (chatLines == null || chatLines.Length == 0) return "";
+
+        // All lines used in this appearance -> start over
+        if (usedChatLines.Count >= chatLines.Length) usedChatLines.Clear();
+
+        int index;
+        do { index = Random.Range(0, chatLines.Length); }
+        while (usedChatLines.Contains(index));
+
+        usedChatLines.Add(index);
+        return chatLines[index];
+    }
+
+    static float EvaluateShow(ChatShowAnim anim, float p)
+    {
+        switch (anim)
+        {
+            case ChatShowAnim.EaseOut: return 1f - (1f - p) * (1f - p);
+            case ChatShowAnim.Pop: return EaseOutBack(p);
+            case ChatShowAnim.Elastic: return EaseOutElastic(p);
+            default: return p;
+        }
+    }
+
+    static float EaseInQuad(float p) => p * p;
+
+    static float EaseOutBack(float p)
+    {
+        const float c1 = 1.70158f, c3 = c1 + 1f;
+        float x = p - 1f;
+        return 1f + c3 * x * x * x + c1 * x * x;
+    }
+
+    static float EaseInBack(float p)
+    {
+        const float c1 = 1.70158f, c3 = c1 + 1f;
+        return c3 * p * p * p - c1 * p * p;
+    }
+
+    static float EaseOutElastic(float p)
+    {
+        if (p <= 0f) return 0f;
+        if (p >= 1f) return 1f;
+        const float c4 = (2f * Mathf.PI) / 3f;
+        return Mathf.Pow(2f, -10f * p) * Mathf.Sin((p * 10f - 0.75f) * c4) + 1f;
     }
 
     IEnumerator BossSayRoutine()
@@ -189,30 +460,66 @@ public class BossManager : MonoBehaviour
 
     IEnumerator BossBubbleRoutine()
     {
-        if (bossSpeech == null)
+        if (bossSpeechPrefab == null)
         {
-            Debug.LogWarning("[BossManager] bossSpeech is not assigned");
+            Debug.LogWarning("[BossManager] bossSpeechPrefab is not assigned");
             yield break;
         }
 
-        if (speechText == null) speechText = bossSpeech.GetComponentInChildren<TMP_Text>(true);
+        Canvas canvas = GetCanvas();
+        if (canvas == null)
+        {
+            Debug.LogWarning("[BossManager] No Canvas found to spawn the speech bubble under");
+            yield break;
+        }
+
+        // Spawn under the Canvas (not the Boss), keeping the prefab's RectTransform layout,
+        // and put it as the last child so it renders on top.
+        bossSpeechInstance = Instantiate(bossSpeechPrefab, canvas.transform, false);
+        bossSpeechInstance.transform.SetAsLastSibling();
+        bossSpeechInstance.SetActive(true);
+
+        TMP_Text speechText = bossSpeechInstance.GetComponentInChildren<TMP_Text>(true);
         if (speechText != null && bossLines != null && bossLines.Length > 0)
             speechText.text = bossLines[Random.Range(0, bossLines.Length)];
+        else if (speechText == null)
+            Debug.LogWarning("[BossManager] No TMP_Text found in the speech bubble prefab");
 
-        bossSpeech.SetActive(true);
         yield return new WaitForSeconds(bubbleShowTime);
 
         float delay = CallNextButtonAndGetDelay();
         yield return new WaitForSeconds(delay);
 
-        bossSpeech.SetActive(false);
+        DestroyBubble();
         bubbleRoutine = null;
+    }
+
+    Canvas GetCanvas()
+    {
+        if (targetCanvas != null) return targetCanvas;
+#if UNITY_2023_1_OR_NEWER
+        targetCanvas = FindFirstObjectByType<Canvas>();
+#else
+        targetCanvas = FindObjectOfType<Canvas>();
+#endif
+        if (targetCanvas != null) targetCanvas = targetCanvas.rootCanvas;
+        return targetCanvas;
+    }
+
+    void DestroyBubble()
+    {
+        if (bossSpeechInstance != null)
+        {
+            Destroy(bossSpeechInstance);
+            bossSpeechInstance = null;
+        }
     }
 
     // ============= Helpers =============
 
     IEnumerator MoveTo(Vector3 target)
     {
+        FaceDirection(target.x - transform.position.x);
         while ((transform.position - target).sqrMagnitude > 0.0001f)
         {
             transform.position = Vector3.MoveTowards(transform.position, target, moveSpeed * Time.deltaTime);
@@ -221,7 +528,12 @@ public class BossManager : MonoBehaviour
         transform.position = target;
     }
 
-    int RandomWalkHash() => Random.value < 0.5f ? WalkHash : WalknSpeechHash;
+    int RandomWalkHash()
+    {
+        bool talk = Random.value < walknSpeechChance;
+        if (debugLog) Debug.Log("[BossManager] Move animation: " + (talk ? "WalknSpeech" : "Walk"));
+        return talk ? WalknSpeechHash : WalkHash;
+    }
 
     /// <summary>Sets every bool to false except the given one (pass 0 to turn all off)</summary>
     void SetAnim(int activeHash)
@@ -229,6 +541,15 @@ public class BossManager : MonoBehaviour
         if (animator == null) return;
         foreach (int h in AllHashes)
             animator.SetBool(h, h == activeHash);
+
+        // Chat bubble appears whenever WalknSpeech or Speech is turned on
+        if (activeHash == WalknSpeechHash || activeHash == SpeechHash)
+            ShowChatBubble();
+    }
+
+    static MoveSide ResolveSide(MoveSide side)
+    {
+        return side == MoveSide.Random ? RealSides[Random.Range(0, RealSides.Length)] : side;
     }
 
     static Vector3 SideToDir(MoveSide side)
@@ -236,9 +557,19 @@ public class BossManager : MonoBehaviour
         switch (side)
         {
             case MoveSide.Left: return Vector3.left;
-            case MoveSide.Right: return Vector3.right;
-            default: return Vector3.down;
+            default: return Vector3.right;
         }
+    }
+
+    /// <summary>Calls a no-argument method on the GameManager object</summary>
+    void CallGameManager(string methodName)
+    {
+        if (gameManager == null)
+        {
+            Debug.LogWarning("[BossManager] gameManager is not assigned");
+            return;
+        }
+        gameManager.SendMessage(methodName, SendMessageOptions.RequireReceiver);
     }
 
     void CallOnStartButtonClicked()
@@ -293,27 +624,68 @@ public class BossManager : MonoBehaviour
     void OnDrawGizmos()
     {
         Vector3 home = Application.isPlaying && homeCached ? homePosition : transform.position;
-        Vector3 enterStart = home + SideToDir(enterFrom) * enterDistance;
-        Vector3 exitEnd = home + SideToDir(exitTo) * exitDistance;
 
         // Home point
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireSphere(home, 0.3f);
-
-        // Enter path (green)
-        Gizmos.color = Color.green;
-        Gizmos.DrawLine(enterStart, home);
-        Gizmos.DrawWireSphere(enterStart, 0.3f);
-
-        // Exit path (red)
-        Gizmos.color = Color.red;
-        Gizmos.DrawLine(home, exitEnd);
-        Gizmos.DrawWireSphere(exitEnd, 0.3f);
-
 #if UNITY_EDITOR
         Handles.Label(home + Vector3.up * 0.5f, "Home");
-        Handles.Label(enterStart + Vector3.up * 0.5f, "Enter Start");
-        Handles.Label(exitEnd + Vector3.up * 0.5f, "Exit End");
+#endif
+
+        // In Play Mode show the sides actually picked; otherwise show every possible side
+        MoveSide enterShow = Application.isPlaying && sidesResolved ? currentEnterSide : enterFrom;
+        MoveSide exitShow = Application.isPlaying && sidesResolved ? currentExitSide : exitTo;
+
+        foreach (var side in RealSides)
+        {
+            if (enterShow == side || enterShow == MoveSide.Random)
+                DrawPath(home, side, enterDistance, Color.green, "Enter Start", 0f);
+            if (exitShow == side || exitShow == MoveSide.Random)
+                DrawPath(home, side, exitDistance, Color.red, "Exit End", 0.15f);
+        }
+    }
+
+    void DrawPath(Vector3 home, MoveSide side, float distance, Color color, string label, float offset)
+    {
+        Vector3 dir = SideToDir(side);
+        Vector3 perp = new Vector3(-dir.y, dir.x, 0f) * offset;   // small offset so enter/exit lines don't overlap
+        Vector3 a = home + perp;
+        Vector3 b = home + dir * distance + perp;
+
+        Gizmos.color = color;
+        Gizmos.DrawLine(a, b);
+        Gizmos.DrawWireSphere(b, 0.3f);
+#if UNITY_EDITOR
+        Handles.color = color;
+        Handles.Label(b + Vector3.up * (0.5f + offset * 3f), label);
 #endif
     }
 }
+
+// ===================== Inspector Test Button (Editor only) =====================
+#if UNITY_EDITOR
+[CustomEditor(typeof(BossManager))]
+public class BossManagerEditor : Editor
+{
+    public override void OnInspectorGUI()
+    {
+        DrawDefaultInspector();
+
+        EditorGUILayout.Space(10);
+        EditorGUILayout.LabelField("Test", EditorStyles.boldLabel);
+
+        if (!Application.isPlaying)
+            EditorGUILayout.HelpBox("Enter Play Mode to use the test button.", MessageType.Info);
+
+        using (new EditorGUI.DisabledScope(!Application.isPlaying))
+        {
+            if (GUILayout.Button("Test BossAct()", GUILayout.Height(30)))
+                ((BossManager)target).BossAct();
+            if (GUILayout.Button("Test BossBubbleChat()", GUILayout.Height(30)))
+                ((BossManager)target).BossBubbleChat();
+            if (GUILayout.Button("Test ShowChatBubble()", GUILayout.Height(30)))
+                ((BossManager)target).ShowChatBubble();
+        }
+    }
+}
+#endif

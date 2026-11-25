@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
+using DG.Tweening;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TMPro;
 
@@ -43,6 +45,76 @@ public class GameManager : MonoBehaviour
     [Tooltip("GameObject attached with PlayerScript")]
     [SerializeField] private GameObject player;
 
+    [Header("Boss Settings")]
+    [Tooltip("Boss GameObject. A child object under it has the BossManager script. BossBubbleChat() is called when the stage is completed")]
+    [SerializeField] private GameObject boss;
+
+    [Header("Exit Settings")]
+    [Tooltip("Object with the ExitTransition script. StartExit() is called when the stage has been finished Stages To Exit times")]
+    [SerializeField] private ExitTransition exitTransition;
+
+    [Tooltip("How many times the stage must be finished before StartExit() is called")]
+    [SerializeField] private int stagesToExit = 3;
+
+    [Header("Game Over Transition")]
+    [Tooltip("When ON, Game Over plays the transition (camera zoom, Game UI slide down, IrisTransition, scene change). When OFF, none of it happens")]
+    [SerializeField] private bool enableGameOverTransition = true;
+
+    [Tooltip("Camera to zoom in on Game Over. Leave empty to use Camera.main")]
+    [SerializeField] private Camera gameOverCamera;
+
+    [Tooltip("IrisTransition prefab. Spawned on top of the Canvas below after Iris Delay seconds")]
+    [SerializeField] private GameObject irisTransition;
+
+    [Tooltip("Canvas to spawn IrisTransition in (use a Screen Space root Canvas). It is placed as the last child, so it's drawn on top")]
+    [SerializeField] private Canvas irisCanvas;
+
+    [Tooltip("Orthographic camera: Orthographic Size at the end of the zoom (smaller = closer)")]
+    [SerializeField] private float gameOverZoomSize = 2f;
+
+    [Tooltip("Perspective camera: Field of View at the end of the zoom (smaller = closer)")]
+    [SerializeField] private float gameOverZoomFieldOfView = 25f;
+
+    [Tooltip("Horizontal offset added to the Player's X for where the camera ends up (positive = right, negative = left, see the red gizmo)")]
+    [SerializeField] private float gameOverZoomXOffset = 0f;
+
+    [Tooltip("Height offset added to the Player's Y for where the camera ends up (positive = higher, see the red gizmo)")]
+    [SerializeField] private float gameOverZoomYOffset = 0f;
+
+    [Tooltip("Time (seconds) the zoom takes")]
+    [SerializeField] private float gameOverZoomDuration = 1f;
+
+    [Tooltip("Speed curve of the zoom")]
+    [SerializeField] private AnimationCurve gameOverZoomCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+
+    [Tooltip("Seconds after Game Over starts before IrisTransition is spawned")]
+    [SerializeField] private float irisDelay = 1f;
+
+    [Tooltip("Seconds after IrisTransition is spawned before the next scene is loaded")]
+    [SerializeField] private float gameOverLoadDelay = 2f;
+
+    [Tooltip("Name of the scene to load after Game Over (must be added in File > Build Settings)")]
+    [SerializeField] private string gameOverSceneName;
+
+    [Tooltip("Show the Game Over zoom-in camera frame around the Player in the Scene view")]
+    [SerializeField] private bool showGameOverGizmo = true;
+
+    [Header("Game Over: Game UI")]
+    [Tooltip("Game UI (RectTransform). Slides down when Game Over starts")]
+    [SerializeField] private RectTransform gameUI;
+
+    [Tooltip("Seconds after Game Over starts before Game UI starts moving down")]
+    [SerializeField] private float gameUIDropDelay = 0f;
+
+    [Tooltip("How far Game UI moves (UI units, negative = down)")]
+    [SerializeField] private float gameUIDropOffsetY = -300f;
+
+    [Tooltip("Time (seconds) Game UI takes to move down")]
+    [SerializeField] private float gameUIDropDuration = 0.8f;
+
+    [Tooltip("Speed curve of Game UI moving down")]
+    [SerializeField] private AnimationCurve gameUIDropCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+
     [Header("NPC Settings")]
     [Tooltip("NPC objects (each with NpcScript). Each time Next is pressed, a random number of them are picked, RobotSwitch() is called, and they are removed from this list")]
     [SerializeField] private List<GameObject> npcObjects = new List<GameObject>();
@@ -59,7 +131,9 @@ public class GameManager : MonoBehaviour
 
     // Internal states
     private bool isTransitioning = false;
+    private bool gameOverTransitionStarted = false;
     private int completedStages = 0;
+    private int finishedStageCount = 0;   // how many times "Finished this stage" has happened
     private int currentSceneIndex = 0;
     private SpriteRenderer bgSpriteRenderer;
 
@@ -95,6 +169,11 @@ public class GameManager : MonoBehaviour
     /// Public property to read completed stage count.
     /// </summary>
     public int CompletedStages => completedStages;
+
+    /// <summary>
+    /// Public property to read how many times the stage has been finished ("Finished this stage").
+    /// </summary>
+    public int FinishedStageCount => finishedStageCount;
 
     private void Awake()
     {
@@ -202,12 +281,34 @@ public class GameManager : MonoBehaviour
             if (completedStages == totalCounts)
             {
                 IsFinished = true;
-                Debug.Log("Finished this stage");
+                finishedStageCount++;
+                Debug.Log($"Finished this stage ({finishedStageCount}/{stagesToExit})");
 
                 // Pause timer on CountdownBar script when finishing the stage
                 if (timerManager != null)
                 {
                     timerManager.SendMessage("PauseTimer", SendMessageOptions.DontRequireReceiver);
+                }
+
+                // Call BossBubbleChat() on BossManager (on a child object of boss)
+                // Skipped on the finish that triggers the exit
+                if (boss != null && finishedStageCount < stagesToExit)
+                {
+                    boss.BroadcastMessage("BossBubbleChat", SendMessageOptions.RequireReceiver);
+                }
+
+                // Finished enough times: leave the scene
+                if (finishedStageCount >= stagesToExit)
+                {
+                    if (exitTransition != null)
+                    {
+                        exitTransition.StartExit();
+                    }
+                    else
+                    {
+                        Debug.LogWarning("[GameManager] Exit Transition is not assigned, can't call StartExit().");
+                    }
+                    return;   // no Next Button, the scene is ending
                 }
 
                 // Show Next Button upon completion (debug mode only)
@@ -345,6 +446,130 @@ public class GameManager : MonoBehaviour
         {
             player.SendMessage("GameOver", SendMessageOptions.DontRequireReceiver);
         }
+
+        // Zoom in on the Player, spawn IrisTransition, then load the Game Over scene
+        if (enableGameOverTransition && !gameOverTransitionStarted)
+        {
+            gameOverTransitionStarted = true;
+            StartCoroutine(GameOverTransitionRoutine());
+        }
+    }
+
+    /// <summary>
+    /// Game Over transition: camera zooms in on the Player,
+    /// IrisTransition is spawned after irisDelay, the scene changes after gameOverLoadDelay.
+    /// </summary>
+    private IEnumerator GameOverTransitionRoutine()
+    {
+        // 1. Camera zooms in on the Player
+        GameOverZoomToPlayer();
+
+        // 1b. Game UI slides down (runs alongside, with its own delay)
+        DropGameUI();
+
+        // 2. Wait, then spawn IrisTransition on top of the Canvas
+        if (irisDelay > 0f) yield return new WaitForSeconds(irisDelay);
+        SpawnIris();
+
+        // 3. Wait, then load the next scene
+        if (gameOverLoadDelay > 0f) yield return new WaitForSeconds(gameOverLoadDelay);
+
+        if (string.IsNullOrEmpty(gameOverSceneName))
+        {
+            Debug.LogError("[GameManager] Game Over Scene Name is not set!");
+        }
+        else if (!Application.CanStreamedLevelBeLoaded(gameOverSceneName))
+        {
+            Debug.LogError($"[GameManager] Scene \"{gameOverSceneName}\" is not in File > Build Settings!");
+        }
+        else
+        {
+            SceneManager.LoadScene(gameOverSceneName);
+        }
+    }
+
+    private void GameOverZoomToPlayer()
+    {
+        Camera cam = gameOverCamera != null ? gameOverCamera : Camera.main;
+        if (cam == null) return;
+
+        Transform camT = cam.transform;
+
+        // Stop any other camera movement (e.g. IntroCutscene) so they don't fight
+        DOTween.Kill(camT);
+
+        if (player != null)
+        {
+            Vector3 target = camT.position;
+            target.x = player.transform.position.x + gameOverZoomXOffset;
+            target.y = player.transform.position.y + gameOverZoomYOffset;
+            camT.DOMove(target, gameOverZoomDuration).SetEase(gameOverZoomCurve).SetId(this);
+        }
+
+        if (cam.orthographic)
+        {
+            DOTween.To(() => cam.orthographicSize, x => cam.orthographicSize = x, gameOverZoomSize, gameOverZoomDuration)
+                .SetEase(gameOverZoomCurve).SetId(this);
+        }
+        else
+        {
+            DOTween.To(() => cam.fieldOfView, x => cam.fieldOfView = x, gameOverZoomFieldOfView, gameOverZoomDuration)
+                .SetEase(gameOverZoomCurve).SetId(this);
+        }
+    }
+
+    private void DropGameUI()
+    {
+        if (gameUI == null) return;
+
+        // Wait for the delay, then move down from wherever Game UI is at that moment
+        DOTween.Sequence().SetId(this)
+            .AppendInterval(Mathf.Max(0f, gameUIDropDelay))
+            .AppendCallback(() =>
+            {
+                Vector2 target = gameUI.anchoredPosition + Vector2.up * gameUIDropOffsetY;
+                DOTween.To(() => gameUI.anchoredPosition, v => gameUI.anchoredPosition = v, target, gameUIDropDuration)
+                    .SetEase(gameUIDropCurve).SetId(this);
+            });
+    }
+
+    private void SpawnIris()
+    {
+        if (irisTransition == null)
+        {
+            Debug.LogWarning("[GameManager] IrisTransition prefab is not assigned.");
+            return;
+        }
+
+        if (irisCanvas == null)
+        {
+            Debug.LogWarning("[GameManager] Iris Canvas is not assigned.");
+            return;
+        }
+
+        GameObject iris = Instantiate(irisTransition, irisCanvas.transform, false);
+        iris.transform.SetAsLastSibling();   // drawn on top of everything else in this canvas
+    }
+
+    private void OnDestroy()
+    {
+        DOTween.Kill(this);
+    }
+
+    private void OnDrawGizmos()
+    {
+        if (!enableGameOverTransition || !showGameOverGizmo || player == null) return;
+
+        Camera cam = gameOverCamera != null ? gameOverCamera : Camera.main;
+        if (cam == null || !cam.orthographic) return;
+
+        // Red: what the camera sees at the end of the Game Over zoom
+        Vector3 center = player.transform.position + new Vector3(gameOverZoomXOffset, gameOverZoomYOffset, 0f);
+        float halfH = gameOverZoomSize;
+        float halfW = halfH * cam.aspect;
+        Gizmos.color = new Color(1f, 0.2f, 0.2f);
+        Gizmos.DrawWireCube(center, new Vector3(halfW * 2f, halfH * 2f, 0f));
+        Gizmos.DrawWireSphere(center, 0.15f);
     }
 
     [ContextMenu("Test: Complete Stage")]

@@ -119,6 +119,16 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &13401238 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 2293143754656099798, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+  m_PrefabInstance: {fileID: 2043580601}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &13401239 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+  m_PrefabInstance: {fileID: 2043580601}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &40395369
 GameObject:
   m_ObjectHideFlags: 0
@@ -413,6 +423,11 @@ MonoBehaviour:
   robotMiddleDownDistance: 4
   npcMiddleSideDistance: 4
   npcMiddleDownDistance: 4
+--- !u!1 &70550449 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8209618321318358955, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+  m_PrefabInstance: {fileID: 2043580601}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &119861781 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 5729410723788758140, guid: 296f0a9197bed224abc86dec1e382413, type: 3}
@@ -2482,6 +2497,7 @@ Transform:
   - {fileID: 255200199}
   - {fileID: 491270949}
   - {fileID: 658906430}
+  - {fileID: 13401239}
   m_Father: {fileID: 1288744541}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &611708142
@@ -3621,13 +3637,37 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  robotSideCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   robotMiddleSideDistance: 1.76
   robotMiddleDownDistance: 4.47
   matchPlayerSorting: 1
   robotSortingOrderOffset: 0
   guardSortingOrderOffset: 0
   playerLeaveDelay: 1.2
-  playerWalkDistance: 1.35
+  playerWalkDistance: 1.55
   playerWalkSpeed: 2
   playerFacesRightByDefault: 1
   keepFlippedOnLose: 0
@@ -7020,6 +7060,74 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 5205398905041243127, guid: df93baccfc742314695f747f7aa25bb8, type: 3}
   m_PrefabInstance: {fileID: 2037104391}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &2043580601
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 581554790}
+    m_Modifications:
+    - target: {fileID: 1549529745263558273, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: gameManager
+      value: 
+      objectReference: {fileID: 2104768297}
+    - target: {fileID: 1549529745263558273, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: targetCanvas
+      value: 
+      objectReference: {fileID: 462255676}
+    - target: {fileID: 2293143754656099798, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: m_Name
+      value: Boss
+      objectReference: {fileID: 0}
+    - target: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 509.89
+      objectReference: {fileID: 0}
+    - target: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 177.21
+      objectReference: {fileID: 0}
+    - target: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 5328751546572021362, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+  m_SourcePrefab: {fileID: 100100000, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
 --- !u!1001 &2047799696
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -7444,9 +7552,21 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: boss
+      value: 
+      objectReference: {fileID: 13401238}
+    - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: gameUI
+      value: 
+      objectReference: {fileID: 286215204}
+    - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: player
       value: 
       objectReference: {fileID: 915582420}
+    - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: irisCanvas
+      value: 
+      objectReference: {fileID: 462255676}
     - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: nextButton
       value: 
@@ -7475,6 +7595,10 @@ PrefabInstance:
       propertyPath: timerManager
       value: 
       objectReference: {fileID: 1533609219}
+    - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: gameOverCamera
+      value: 
+      objectReference: {fileID: 1268654217}
     - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: nextStageDelay
       value: 5
@@ -7615,6 +7739,34 @@ PrefabInstance:
       propertyPath: 'backgroundScenes.Array.data[2]'
       value: 
       objectReference: {fileID: -7094366954359921288, guid: b4572b2771013e849b18f5bf4d015f01, type: 3}
+    - target: {fileID: 4364363967565202919, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: boss
+      value: 
+      objectReference: {fileID: 70550449}
+    - target: {fileID: 4364363967565202919, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: gameUI
+      value: 
+      objectReference: {fileID: 286215204}
+    - target: {fileID: 4364363967565202919, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: player
+      value: 
+      objectReference: {fileID: 915582421}
+    - target: {fileID: 4364363967565202919, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: targetCamera
+      value: 
+      objectReference: {fileID: 1268654217}
+    - target: {fileID: 4464440422401292969, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: player
+      value: 
+      objectReference: {fileID: 915582421}
+    - target: {fileID: 4464440422401292969, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: targetCamera
+      value: 
+      objectReference: {fileID: 1268654217}
+    - target: {fileID: 4464440422401292969, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: targetCanvas
+      value: 
+      objectReference: {fileID: 462255676}
     - target: {fileID: 4820486556854349501, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: m_Name
       value: GameManager

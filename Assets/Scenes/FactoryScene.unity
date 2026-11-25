@@ -2650,6 +2650,7 @@ Transform:
   - {fileID: 255200199}
   - {fileID: 491270949}
   - {fileID: 658906430}
+  - {fileID: 983926509}
   m_Father: {fileID: 1555573685}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &611708142
@@ -3751,7 +3752,7 @@ MonoBehaviour:
   robotSortingOrderOffset: 0
   guardSortingOrderOffset: 0
   playerLeaveDelay: 1
-  playerWalkDistance: 1.26
+  playerWalkDistance: 1.44
   playerWalkSpeed: 2
   playerFacesRightByDefault: 1
   keepFlippedOnLose: 0
@@ -3771,6 +3772,16 @@ MonoBehaviour:
   scamPlayerDownDistance: 3
   scamPlayerDownSpeed: 2
   showGizmos: 1
+--- !u!1 &983926508 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 2293143754656099798, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+  m_PrefabInstance: {fileID: 1922358332}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &983926509 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+  m_PrefabInstance: {fileID: 1922358332}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1012609155
 GameObject:
   m_ObjectHideFlags: 0
@@ -6537,6 +6548,74 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 5717423377617454263, guid: f366eb292f0e57943b40ef8c8331dea6, type: 3}
   m_PrefabInstance: {fileID: 1906200349}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &1922358332
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 581554790}
+    m_Modifications:
+    - target: {fileID: 1549529745263558273, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: gameManager
+      value: 
+      objectReference: {fileID: 2104768297}
+    - target: {fileID: 1549529745263558273, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: targetCanvas
+      value: 
+      objectReference: {fileID: 462255676}
+    - target: {fileID: 2293143754656099798, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: m_Name
+      value: Boss
+      objectReference: {fileID: 0}
+    - target: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 509.99
+      objectReference: {fileID: 0}
+    - target: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 177.29
+      objectReference: {fileID: 0}
+    - target: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 5328751546572021362, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+  m_SourcePrefab: {fileID: 100100000, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
 --- !u!1001 &1950909781
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -6662,6 +6741,11 @@ RectTransform:
   m_AnchoredPosition: {x: -38.269592, y: -29.598541}
   m_SizeDelta: {x: 1997.3392, y: 1167.197}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &2011454977 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8209618321318358955, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+  m_PrefabInstance: {fileID: 1922358332}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &2017205201 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2429149304784217986, guid: 0be163d50213afc4ebdc1a006691aad8, type: 3}
@@ -7458,9 +7542,21 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: boss
+      value: 
+      objectReference: {fileID: 983926508}
+    - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: gameUI
+      value: 
+      objectReference: {fileID: 1976380297}
+    - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: player
       value: 
       objectReference: {fileID: 915582420}
+    - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: irisCanvas
+      value: 
+      objectReference: {fileID: 462255676}
     - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: nextButton
       value: 
@@ -7489,6 +7585,10 @@ PrefabInstance:
       propertyPath: timerManager
       value: 
       objectReference: {fileID: 1533609219}
+    - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: gameOverCamera
+      value: 
+      objectReference: {fileID: 1268654217}
     - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: nextStageDelay
       value: 5
@@ -7629,6 +7729,38 @@ PrefabInstance:
       propertyPath: 'backgroundScenes.Array.data[2]'
       value: 
       objectReference: {fileID: -7094366954359921288, guid: b4572b2771013e849b18f5bf4d015f01, type: 3}
+    - target: {fileID: 4364363967565202919, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: boss
+      value: 
+      objectReference: {fileID: 2011454977}
+    - target: {fileID: 4364363967565202919, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: gameUI
+      value: 
+      objectReference: {fileID: 1976380297}
+    - target: {fileID: 4364363967565202919, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: player
+      value: 
+      objectReference: {fileID: 915582421}
+    - target: {fileID: 4364363967565202919, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: targetCamera
+      value: 
+      objectReference: {fileID: 1268654217}
+    - target: {fileID: 4364363967565202919, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: letterboxCanvas
+      value: 
+      objectReference: {fileID: 462255676}
+    - target: {fileID: 4464440422401292969, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: player
+      value: 
+      objectReference: {fileID: 915582421}
+    - target: {fileID: 4464440422401292969, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: targetCamera
+      value: 
+      objectReference: {fileID: 1268654217}
+    - target: {fileID: 4464440422401292969, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: targetCanvas
+      value: 
+      objectReference: {fileID: 462255676}
     - target: {fileID: 4820486556854349501, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: m_Name
       value: GameManager

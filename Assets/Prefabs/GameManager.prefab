@@ -34,7 +34,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 747, y: 447}
+  m_AnchoredPosition: {x: 1262, y: 819}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &7011650831852586023
@@ -74,8 +74,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4278394425
-  m_fontColor: {r: 0.22431862, g: 0.11639173, b: 0.012462138, a: 1}
+    rgba: 4278239487
+  m_fontColor: {r: 1, g: 0.7536926, b: 0, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -147,6 +147,8 @@ GameObject:
   m_Component:
   - component: {fileID: 3222015906393429232}
   - component: {fileID: 3838081984079701929}
+  - component: {fileID: 4364363967565202919}
+  - component: {fileID: 4464440422401292969}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -186,18 +188,84 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c3b370e9faee6e9459e4d83dc92b83e9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  debugMode: 0
   levelText: {fileID: 2757172747992449811}
   startButton: {fileID: 0}
   nextButton: {fileID: 0}
-  totalCounts: 3
+  totalCounts: 2
   backgroundObject: {fileID: 0}
-  backgroundScenes:
-  - {fileID: 1317231426208439350, guid: b7a9c4d885796514a88fb8068a073ffe, type: 3}
-  - {fileID: 1723013046088304391, guid: 23d383500f022c540b41955500d3d4cb, type: 3}
-  - {fileID: -7094366954359921288, guid: b4572b2771013e849b18f5bf4d015f01, type: 3}
+  backgroundScenes: []
   typeGameManager: {fileID: 0}
   timerManager: {fileID: 0}
   player: {fileID: 0}
+  boss: {fileID: 0}
+  exitTransition: {fileID: 4464440422401292969}
+  stagesToExit: 3
+  enableGameOverTransition: 1
+  gameOverCamera: {fileID: 0}
+  irisTransition: {fileID: 4117823848113485597, guid: a228c66648662a9488d9f4638010674e, type: 3}
+  irisCanvas: {fileID: 0}
+  gameOverZoomSize: 3.2
+  gameOverZoomFieldOfView: 25
+  gameOverZoomXOffset: -1.44
+  gameOverZoomYOffset: 0.22
+  gameOverZoomDuration: 5
+  gameOverZoomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  irisDelay: 3
+  gameOverLoadDelay: 5
+  gameOverSceneName: PassScene
+  showGameOverGizmo: 1
+  gameUI: {fileID: 0}
+  gameUIDropDelay: 2
+  gameUIDropOffsetY: -390
+  gameUIDropDuration: 2
+  gameUIDropCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   npcObjects:
   - {fileID: 0}
   - {fileID: 0}
@@ -216,6 +284,211 @@ MonoBehaviour:
   minNpcCount: 7
   maxNpcCount: 7
   nextStageDelay: 5
+--- !u!114 &4364363967565202919
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4820486556854349501}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5fdc9a1b00f35fe49b584d9399d218d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  targetCamera: {fileID: 0}
+  player: {fileID: 0}
+  boss: {fileID: 0}
+  gameUI: {fileID: 0}
+  playOnStart: 1
+  gameUIHiddenOffsetY: -390
+  gameUIReturnDuration: 3
+  gameUIReturnCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 2
+      outSlope: 2
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  letterboxCanvas: {fileID: 0}
+  barHeight: 0.192
+  barColor: {r: 0, g: 0, b: 0, a: 1}
+  barSortingOrder: 100
+  barOutDuration: 2
+  barOutCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  closeUpSize: 4.29
+  closeUpFieldOfView: 30
+  startDelay: 0.5
+  dropHeight: 5.49
+  dropDuration: 0.8
+  dropCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 2
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  landingEffect: 2
+  landingStrength: 0.3
+  landingDuration: 0.4
+  holdTime: 2
+  bossYOffset: 0.88
+  toBossDuration: 2
+  toBossCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  bossActDelay: 0
+  backDuration: 2
+  backCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  showGizmos: 1
+--- !u!114 &4464440422401292969
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4820486556854349501}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3ccd1c90cd3035a4aa56289ce1e12b8d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  targetCamera: {fileID: 0}
+  player: {fileID: 0}
+  irisTransition: {fileID: 4117823848113485597, guid: a228c66648662a9488d9f4638010674e, type: 3}
+  targetCanvas: {fileID: 0}
+  zoomSize: 3.32
+  zoomFieldOfView: 25
+  zoomYOffset: 0.35
+  zoomDuration: 2.5
+  zoomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  nextSceneName: PassScene
+  loadDelay: 4
+  showGizmos: 1
 --- !u!1 &6158171337660347206
 GameObject:
   m_ObjectHideFlags: 0
