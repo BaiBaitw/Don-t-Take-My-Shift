@@ -6,14 +6,18 @@ using TMPro;
 
 public class GameManager : MonoBehaviour
 {
+    [Header("Debug Settings")]
+    [Tooltip("When OFF, the Start Button and Next Button are never shown (they are only used for testing levels)")]
+    [SerializeField] private bool debugMode = false;
+
     [Header("UI Element Settings")]
     [Tooltip("TextMeshProUGUI component displaying progress count")]
     [SerializeField] private TextMeshProUGUI levelText;
 
-    [Tooltip("Button to start the game initially")]
+    [Tooltip("Button to start the game initially (only shown in debug mode)")]
     [SerializeField] private Button startButton;
 
-    [Tooltip("Button to advance to the next level/stage when finished")]
+    [Tooltip("Button to advance to the next level/stage when finished (only shown in debug mode)")]
     [SerializeField] private Button nextButton;
 
     [Header("Count & Stage Parameters")]
@@ -60,6 +64,11 @@ public class GameManager : MonoBehaviour
     private SpriteRenderer bgSpriteRenderer;
 
     /// <summary>
+    /// Public property to read whether debug mode is on (Start / Next buttons are shown).
+    /// </summary>
+    public bool DebugMode => debugMode;
+
+    /// <summary>
     /// Public property to read whether all stages in current session are finished.
     /// </summary>
     public bool IsFinished { get; protected set; } = false;   // protected set: SupermanGameManager
@@ -99,12 +108,24 @@ public class GameManager : MonoBehaviour
         if (startButton != null)
         {
             startButton.onClick.AddListener(OnStartButtonClicked);
+
+            // Start Button is only shown in debug mode
+            if (!debugMode)
+            {
+                startButton.gameObject.SetActive(false);
+            }
         }
 
         // Setup nextButton click event
         if (nextButton != null)
         {
             nextButton.onClick.AddListener(OnNextButtonClicked);
+
+            // Next Button is only shown in debug mode
+            if (!debugMode)
+            {
+                nextButton.gameObject.SetActive(false);
+            }
         }
     }
 
@@ -116,6 +137,7 @@ public class GameManager : MonoBehaviour
 
     /// <summary>
     /// Called when startButton is clicked. Triggers StartGame() on typeGameManager and StartTimer() on timerManager.
+    /// Public, so other scripts can also call it to start the game when debug mode is off.
     /// </summary>
     public void OnStartButtonClicked()
     {
@@ -165,7 +187,8 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Completes the current stage. When all are completed, displays Next Button, pauses timer, and logs message.
+    /// Completes the current stage. When all are completed, pauses timer, logs message,
+    /// and shows the Next Button (debug mode only).
     /// </summary>
     public virtual void CompleteCurrentStage()   // virtual: overridden by SupermanGameManager
     {
@@ -187,8 +210,8 @@ public class GameManager : MonoBehaviour
                     timerManager.SendMessage("PauseTimer", SendMessageOptions.DontRequireReceiver);
                 }
 
-                // Show Next Button upon completion
-                if (nextButton != null)
+                // Show Next Button upon completion (debug mode only)
+                if (debugMode && nextButton != null)
                 {
                     nextButton.gameObject.SetActive(true);
                 }
@@ -198,6 +221,7 @@ public class GameManager : MonoBehaviour
 
     /// <summary>
     /// Called when Next Button is pressed.
+    /// Public, so other scripts can also call it to go to the next stage when debug mode is off.
     /// Immediately activates random NPCs, then after nextStageDelay seconds runs the rest of the next-level setup.
     /// </summary>
     public void OnNextButtonClicked()
