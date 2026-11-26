@@ -1253,7 +1253,7 @@ Transform:
   m_GameObject: {fileID: 350542046}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 4.27, y: 1.78, z: -0.052786026}
+  m_LocalPosition: {x: 4.23, y: -1, z: -0.052786026}
   m_LocalScale: {x: 2.8, y: 2.8, z: 2.8}
   m_ConstrainProportionsScale: 1
   m_Children: []
@@ -1303,7 +1303,7 @@ SpriteRenderer:
   m_SortingLayerID: 914950051
   m_SortingLayer: 1
   m_SortingOrder: 2
-  m_Sprite: {fileID: 21300000, guid: 4a45023aaeb0af24d98aeb4144fe02dc, type: 3}
+  m_Sprite: {fileID: 21300000, guid: e38a32cdfd78ab34288e7bef19757cb5, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -1598,7 +1598,7 @@ Transform:
   m_GameObject: {fileID: 434845698}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 4.27, y: -1, z: -0.052786026}
+  m_LocalPosition: {x: 4.23, y: -1, z: -0.052786026}
   m_LocalScale: {x: 2.8, y: 2.8, z: 2.8}
   m_ConstrainProportionsScale: 1
   m_Children: []
@@ -1648,7 +1648,7 @@ SpriteRenderer:
   m_SortingLayerID: 914950051
   m_SortingLayer: 1
   m_SortingOrder: 7
-  m_Sprite: {fileID: 21300000, guid: 4a45023aaeb0af24d98aeb4144fe02dc, type: 3}
+  m_Sprite: {fileID: 21300000, guid: b3e923a4d471a2645852f8cf31aa5f00, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -1868,8 +1868,8 @@ Transform:
   - {fileID: 486679601}
   - {fileID: 1796124923}
   - {fileID: 350542047}
-  - {fileID: 434845699}
   - {fileID: 1029454634}
+  - {fileID: 434845699}
   m_Father: {fileID: 1288744541}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &479615582
@@ -2082,6 +2082,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 581554790}
     m_Modifications:
+    - target: {fileID: 1583921299135789375, guid: 4cdae36773fd1c745bcf5a780e702b00, type: 3}
+      propertyPath: npcMiddleSideDistance
+      value: 1.64
+      objectReference: {fileID: 0}
     - target: {fileID: 1583921299135789375, guid: 4cdae36773fd1c745bcf5a780e702b00, type: 3}
       propertyPath: robotMiddleDownDistance
       value: 1.9
@@ -2508,6 +2512,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 581554790}
     m_Modifications:
+    - target: {fileID: 58844049119964142, guid: ba452e95406047141a0ffb507f8eb6b0, type: 3}
+      propertyPath: npcMiddleSideDistance
+      value: 1.7
+      objectReference: {fileID: 0}
     - target: {fileID: 58844049119964142, guid: ba452e95406047141a0ffb507f8eb6b0, type: 3}
       propertyPath: robotMiddleDownDistance
       value: 3.82
@@ -3993,7 +4001,7 @@ Transform:
   m_GameObject: {fileID: 1029454633}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 4.27, y: 0.4, z: -0.052786026}
+  m_LocalPosition: {x: 4.23, y: -1, z: -0.052786026}
   m_LocalScale: {x: 2.8, y: 2.8, z: 2.8}
   m_ConstrainProportionsScale: 1
   m_Children: []
@@ -4043,7 +4051,7 @@ SpriteRenderer:
   m_SortingLayerID: 914950051
   m_SortingLayer: 1
   m_SortingOrder: 5
-  m_Sprite: {fileID: 21300000, guid: 4a45023aaeb0af24d98aeb4144fe02dc, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 41d8b10e38b3fce429f6f1097754ccdb, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -5140,8 +5148,16 @@ PrefabInstance:
     m_TransformParent: {fileID: 581554790}
     m_Modifications:
     - target: {fileID: 216780084740235425, guid: 20ccbcf11736dd949a7be205a6831338, type: 3}
+      propertyPath: npcExitDistance
+      value: 5.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 216780084740235425, guid: 20ccbcf11736dd949a7be205a6831338, type: 3}
       propertyPath: robotMiddleDownDistance
-      value: 3.33
+      value: 4.15
+      objectReference: {fileID: 0}
+    - target: {fileID: 216780084740235425, guid: 20ccbcf11736dd949a7be205a6831338, type: 3}
+      propertyPath: robotMiddleSideDistance
+      value: 1.59
       objectReference: {fileID: 0}
     - target: {fileID: 216780084740235425, guid: 20ccbcf11736dd949a7be205a6831338, type: 3}
       propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].inSlope
@@ -5428,8 +5444,16 @@ PrefabInstance:
       value: staff_12
       objectReference: {fileID: 0}
     - target: {fileID: 5601783748119040536, guid: 0be163d50213afc4ebdc1a006691aad8, type: 3}
+      propertyPath: npcMiddleSideDistance
+      value: 1.36
+      objectReference: {fileID: 0}
+    - target: {fileID: 5601783748119040536, guid: 0be163d50213afc4ebdc1a006691aad8, type: 3}
       propertyPath: robotMiddleDownDistance
       value: 1.9
+      objectReference: {fileID: 0}
+    - target: {fileID: 5601783748119040536, guid: 0be163d50213afc4ebdc1a006691aad8, type: 3}
+      propertyPath: robotMiddleSideDistance
+      value: 1.77
       objectReference: {fileID: 0}
     - target: {fileID: 5601783748119040536, guid: 0be163d50213afc4ebdc1a006691aad8, type: 3}
       propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].inSlope
@@ -5591,7 +5615,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
-  m_Sprite: {fileID: -3159877205273031642, guid: ef554c8797d279b4ab3217ec50b6fa5d, type: 3}
+  m_Sprite: {fileID: 21300000, guid: eddbc4697ef41f748b1f1f084f1479a9, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -6837,6 +6861,10 @@ PrefabInstance:
       value: 4.95
       objectReference: {fileID: 0}
     - target: {fileID: 2542778010173362969, guid: 78919b221a75d2a42a1ad7c5632f8c4d, type: 3}
+      propertyPath: robotMiddleSideDistance
+      value: 1.8
+      objectReference: {fileID: 0}
+    - target: {fileID: 2542778010173362969, guid: 78919b221a75d2a42a1ad7c5632f8c4d, type: 3}
       propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].inSlope
       value: 2
       objectReference: {fileID: 0}
@@ -6995,6 +7023,10 @@ PrefabInstance:
     m_TransformParent: {fileID: 581554790}
     m_Modifications:
     - target: {fileID: 2557657880291554584, guid: df93baccfc742314695f747f7aa25bb8, type: 3}
+      propertyPath: npcMiddleSideDistance
+      value: 1.74
+      objectReference: {fileID: 0}
+    - target: {fileID: 2557657880291554584, guid: df93baccfc742314695f747f7aa25bb8, type: 3}
       propertyPath: robotMiddleDownDistance
       value: 4.76
       objectReference: {fileID: 0}
@@ -7086,7 +7118,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 177.21
+      value: 176.89
       objectReference: {fileID: 0}
     - target: {fileID: 8695843990729425747, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
       propertyPath: m_LocalPosition.z
@@ -7183,6 +7215,10 @@ PrefabInstance:
     - target: {fileID: 3805465686348351066, guid: 5115ff8c0cad48a4fbdefa75817c0e9d, type: 3}
       propertyPath: robotMiddleDownDistance
       value: 4.54
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805465686348351066, guid: 5115ff8c0cad48a4fbdefa75817c0e9d, type: 3}
+      propertyPath: robotMiddleSideDistance
+      value: 1.56
       objectReference: {fileID: 0}
     - target: {fileID: 3805465686348351066, guid: 5115ff8c0cad48a4fbdefa75817c0e9d, type: 3}
       propertyPath: robotUpMoveCurve.m_Curve.Array.data[0].inSlope
