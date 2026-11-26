@@ -20,6 +20,9 @@ public class BossManager : MonoBehaviour
     /// <summary>Chat bubble appear animation (scales from small to original size)</summary>
     public enum ChatShowAnim { Linear, EaseOut, Pop, Elastic }
 
+    /// <summary>General easing used by the BossBubbleChat slide and BossSpeech scale animations</summary>
+    public enum UIEase { Linear, EaseOut, EaseInOut, Back, Elastic, Bounce }
+
     /// <summary>Chat bubble disappear animation</summary>
     public enum ChatHideAnim { Instant, Shrink, ShrinkBack, Fade, ShrinkAndFade }
 
@@ -39,7 +42,9 @@ public class BossManager : MonoBehaviour
     public GameObject gameManager;
     [Tooltip("Boss speech bubble PREFAB (RectTransform). A child must have a TextMeshPro - Text (UI)")]
     public GameObject bossSpeechPrefab;
-    [Tooltip("Canvas the bubble is spawned under (as its last child). If empty, the first Canvas in the scene is used")]
+    [Tooltip("BossBubbleChat PREFAB (RectTransform). Spawned before BossSpeech and always drawn on top of it")]
+    public GameObject bossBubbleChatPrefab;
+    [Tooltip("Canvas the bubbles are spawned under (as its last children). If empty, the first Canvas in the scene is used")]
     public Canvas targetCanvas;
     [Tooltip("Chat bubble ROOT under the Boss object (hidden by default). Scales around its own origin. Text / sprites can be children")]
     public GameObject chatBubble;
@@ -79,8 +84,26 @@ public class BossManager : MonoBehaviour
 
     // --------- Speech Bubble ---------
     [Header("Speech Bubble")]
-    [Tooltip("Seconds after showing the bubble before calling GameManager.OnNextButtonClicked()")]
+    [Tooltip("Seconds after BossSpeech is fully shown before calling GameManager.OnNextButtonClicked()")]
     public float bubbleShowTime = 2f;
+
+    [Header("BossBubbleChat Slide-In (moves up into its prefab position)")]
+    public UIEase bubbleChatSlideEase = UIEase.EaseOut;
+    [Tooltip("How far below its prefab position it starts (UI units)")]
+    public float bubbleChatSlideDistance = 300f;
+    [Min(0f)] public float bubbleChatSlideDuration = 0.4f;
+
+    [Header("BossSpeech Scale-Up")]
+    [Tooltip("Added to BossSpeech's prefab position (UI units). X = right, Y = up")]
+    public Vector2 bossSpeechOffset = Vector2.zero;
+    public UIEase bossSpeechScaleEase = UIEase.Back;
+    [Tooltip("Size it starts growing from (0 = from nothing, 0.5 = from half size)")]
+    [Range(0f, 1f)] public float bossSpeechStartScale = 0f;
+    [Tooltip("How far it grows past full size before settling (Back ease only). 0 = no overshoot, 1.7 = default, 4 = strong")]
+    [Range(0f, 5f)] public float bossSpeechOvershoot = 1.70158f;
+    [Min(0f)] public float bossSpeechScaleDuration = 0.3f;
+    [Tooltip("Point it grows from (0,0 = bottom-left, 1,0 = bottom-right)")]
+    public Vector2 bossSpeechScalePivot = new Vector2(1f, 0f);
 
     [TextArea(1, 2)]
     public string[] bossLines = new string[]
@@ -153,7 +176,8 @@ public class BossManager : MonoBehaviour
     Vector3 homePosition;          // Home (stop) point
     bool homeCached;
     Coroutine actRoutine, sayRoutine, bubbleRoutine;
-    GameObject bossSpeechInstance;   // Currently spawned bubble
+    GameObject bossSpeechInstance;     // Currently spawned BossSpeech
+    GameObject bossBubbleChatInstance; // Currently spawned BossBubbleChat
 
     // Chat bubble state
     Coroutine chatRoutine;
@@ -281,7 +305,15 @@ public class BossManager : MonoBehaviour
     {
         if (bubbleRoutine != null) StopCoroutine(bubbleRoutine);
         DestroyBubble();
-        bubbleRoutine = StartCoroutine(BossBubbleRoutine());
+        bubbleRoutine = StartCoroutine(BossBubbleRoutine(true));
+    }
+
+    /// <summary>Test only: plays the BossBubbleChat + BossSpeech animations without calling GameManager</summary>
+    public void PreviewBossBubbleChat()
+    {
+        if (bubbleRoutine != null) StopCoroutine(bubbleRoutine);
+        DestroyBubble();
+        bubbleRoutine = StartCoroutine(BossBubbleRoutine(false));
     }
 
     // ============= Routines =============
@@ -429,9 +461,11 @@ public class BossManager : MonoBehaviour
 
     static float EaseInQuad(float p) => p * p;
 
-    static float EaseOutBack(float p)
+    static float EaseOutBack(float p) => EaseOutBack(p, 1.70158f);
+
+    static float EaseOutBack(float p, float c1)
     {
-        const float c1 = 1.70158f, c3 = c1 + 1f;
+        float c3 = c1 + 1f;
         float x = p - 1f;
         return 1f + c3 * x * x * x + c1 * x * x;
     }
@@ -458,7 +492,7 @@ public class BossManager : MonoBehaviour
         sayRoutine = null;
     }
 
-    IEnumerator BossBubbleRoutine()
+    IEnumerator BossBubbleRoutine(bool callNextStage)
     {
         if (bossSpeechPrefab == null)
         {
@@ -473,10 +507,36 @@ public class BossManager : MonoBehaviour
             yield break;
         }
 
-        // Spawn under the Canvas (not the Boss), keeping the prefab's RectTransform layout,
-        // and put it as the last child so it renders on top.
+        // 1. BossBubbleChat: spawn at the bottom of the Canvas and slide up into its prefab position
+        if (bossBubbleChatPrefab != null)
+        {
+            bossBubbleChatInstance = Instantiate(bossBubbleChatPrefab, canvas.transform, false);
+            bossBubbleChatInstance.transform.SetAsLastSibling();
+            bossBubbleChatInstance.SetActive(true);
+
+            RectTransform chatRt = bossBubbleChatInstance.GetComponent<RectTransform>();
+            if (chatRt != null)
+            {
+                Vector2 endPos = chatRt.anchoredPosition;
+                Vector2 startPos = endPos - new Vector2(0f, bubbleChatSlideDistance);
+                chatRt.anchoredPosition = startPos;
+
+                float time = 0f;
+                while (time < bubbleChatSlideDuration)
+                {
+                    time += Time.deltaTime;
+                    float p = Mathf.Clamp01(time / bubbleChatSlideDuration);
+                    chatRt.anchoredPosition = Vector2.LerpUnclamped(startPos, endPos, Ease(bubbleChatSlideEase, p));
+                    yield return null;
+                }
+                chatRt.anchoredPosition = endPos;
+            }
+        }
+
+        // 2. BossSpeech: spawn, keep BossBubbleChat on top, then scale up from the bottom-right
         bossSpeechInstance = Instantiate(bossSpeechPrefab, canvas.transform, false);
         bossSpeechInstance.transform.SetAsLastSibling();
+        if (bossBubbleChatInstance != null) bossBubbleChatInstance.transform.SetAsLastSibling();
         bossSpeechInstance.SetActive(true);
 
         TMP_Text speechText = bossSpeechInstance.GetComponentInChildren<TMP_Text>(true);
@@ -485,13 +545,71 @@ public class BossManager : MonoBehaviour
         else if (speechText == null)
             Debug.LogWarning("[BossManager] No TMP_Text found in the speech bubble prefab");
 
+        RectTransform speechRt = bossSpeechInstance.GetComponent<RectTransform>();
+        if (speechRt != null)
+        {
+            speechRt.anchoredPosition += bossSpeechOffset;
+            SetPivotKeepPosition(speechRt, bossSpeechScalePivot);
+            Vector3 fullScale = speechRt.localScale;
+            speechRt.localScale = fullScale * bossSpeechStartScale;
+
+            float time = 0f;
+            while (time < bossSpeechScaleDuration)
+            {
+                time += Time.deltaTime;
+                float p = Mathf.Clamp01(time / bossSpeechScaleDuration);
+                float e = bossSpeechScaleEase == UIEase.Back
+                    ? EaseOutBack(p, bossSpeechOvershoot)
+                    : Ease(bossSpeechScaleEase, p);
+                speechRt.localScale = fullScale * Mathf.LerpUnclamped(bossSpeechStartScale, 1f, e);
+                yield return null;
+            }
+            speechRt.localScale = fullScale;
+        }
+
+        // 3. Fully shown -> wait -> next stage -> remove both
         yield return new WaitForSeconds(bubbleShowTime);
 
-        float delay = CallNextButtonAndGetDelay();
-        yield return new WaitForSeconds(delay);
+        if (callNextStage)
+        {
+            float delay = CallNextButtonAndGetDelay();
+            yield return new WaitForSeconds(delay);
+        }
 
         DestroyBubble();
         bubbleRoutine = null;
+    }
+
+    /// <summary>Changes a RectTransform's pivot without moving it on screen</summary>
+    static void SetPivotKeepPosition(RectTransform rt, Vector2 newPivot)
+    {
+        Vector2 size = rt.rect.size;
+        Vector2 delta = newPivot - rt.pivot;
+        Vector3 scale = rt.localScale;
+        rt.pivot = newPivot;
+        rt.anchoredPosition += new Vector2(delta.x * size.x * scale.x, delta.y * size.y * scale.y);
+    }
+
+    static float Ease(UIEase ease, float p)
+    {
+        switch (ease)
+        {
+            case UIEase.EaseOut: return 1f - (1f - p) * (1f - p);
+            case UIEase.EaseInOut: return p < 0.5f ? 2f * p * p : 1f - Mathf.Pow(-2f * p + 2f, 2f) / 2f;
+            case UIEase.Back: return EaseOutBack(p);
+            case UIEase.Elastic: return EaseOutElastic(p);
+            case UIEase.Bounce: return EaseOutBounce(p);
+            default: return p;
+        }
+    }
+
+    static float EaseOutBounce(float p)
+    {
+        const float n1 = 7.5625f, d1 = 2.75f;
+        if (p < 1f / d1) return n1 * p * p;
+        if (p < 2f / d1) { p -= 1.5f / d1; return n1 * p * p + 0.75f; }
+        if (p < 2.5f / d1) { p -= 2.25f / d1; return n1 * p * p + 0.9375f; }
+        p -= 2.625f / d1; return n1 * p * p + 0.984375f;
     }
 
     Canvas GetCanvas()
@@ -512,6 +630,11 @@ public class BossManager : MonoBehaviour
         {
             Destroy(bossSpeechInstance);
             bossSpeechInstance = null;
+        }
+        if (bossBubbleChatInstance != null)
+        {
+            Destroy(bossBubbleChatInstance);
+            bossBubbleChatInstance = null;
         }
     }
 
@@ -681,8 +804,10 @@ public class BossManagerEditor : Editor
         {
             if (GUILayout.Button("Test BossAct()", GUILayout.Height(30)))
                 ((BossManager)target).BossAct();
-            if (GUILayout.Button("Test BossBubbleChat()", GUILayout.Height(30)))
+            if (GUILayout.Button("Test BossBubbleChat()  (calls OnNextButtonClicked)", GUILayout.Height(30)))
                 ((BossManager)target).BossBubbleChat();
+            if (GUILayout.Button("Preview Bubble Animations  (no GameManager call)", GUILayout.Height(30)))
+                ((BossManager)target).PreviewBossBubbleChat();
             if (GUILayout.Button("Test ShowChatBubble()", GUILayout.Height(30)))
                 ((BossManager)target).ShowChatBubble();
         }

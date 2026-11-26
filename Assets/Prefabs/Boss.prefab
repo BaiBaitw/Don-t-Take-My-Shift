@@ -476,6 +476,7 @@ MonoBehaviour:
   animator: {fileID: 7428421279267803585}
   gameManager: {fileID: 0}
   bossSpeechPrefab: {fileID: 4154840975195906037, guid: a370a8b60eae9df4a8e69ff45a3a10d3, type: 3}
+  bossBubbleChatPrefab: {fileID: 5194055715634574214, guid: cb8d94d0a948aaf4fb79a06f33b199be, type: 3}
   targetCanvas: {fileID: 0}
   chatBubble: {fileID: 405356323829067244}
   enterFrom: 2
@@ -500,6 +501,15 @@ MonoBehaviour:
     min: 3
     max: 3
   bubbleShowTime: 3
+  bubbleChatSlideEase: 1
+  bubbleChatSlideDistance: 300
+  bubbleChatSlideDuration: 1
+  bossSpeechOffset: {x: -100, y: 50}
+  bossSpeechScaleEase: 3
+  bossSpeechStartScale: 0
+  bossSpeechOvershoot: 1.02
+  bossSpeechScaleDuration: 0.4
+  bossSpeechScalePivot: {x: 1, y: 0}
   bossLines:
   - We're cutting jobs. Bye!
   - AI is cheaper than you.
