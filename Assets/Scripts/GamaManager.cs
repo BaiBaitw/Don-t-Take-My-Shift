@@ -175,6 +175,11 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public int FinishedStageCount => finishedStageCount;
 
+    /// <summary>
+    /// Public property to read the delay (seconds) between pressing Next and the next-level setup.
+    /// </summary>
+    public float NextStageDelay => nextStageDelay;
+
     private void Awake()
     {
         // Try getting SpriteRenderer from backgroundObject
