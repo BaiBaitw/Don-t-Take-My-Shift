@@ -12358,6 +12358,10 @@ PrefabInstance:
       value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: gameOverSceneName
+      value: MenuScene
+      objectReference: {fileID: 0}
+    - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: showGameOverGizmo
       value: 1
       objectReference: {fileID: 0}
@@ -12532,6 +12536,10 @@ PrefabInstance:
     - target: {fileID: 4464440422401292969, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: zoomSize
       value: 3.06
+      objectReference: {fileID: 0}
+    - target: {fileID: 4464440422401292969, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: levelType
+      value: 5
       objectReference: {fileID: 0}
     - target: {fileID: 4464440422401292969, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: zoomYOffset

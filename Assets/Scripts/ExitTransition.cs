@@ -7,8 +7,9 @@ using UnityEngine.SceneManagement;
 /// Scene exit transition:
 /// 1. Camera zooms in on the Player's current position
 /// 2. The IrisTransition prefab is spawned on top of the chosen Canvas (at the same moment)
-/// 3. After a delay, the next scene is loaded
-/// Call StartExit() from another script (or StartExitTo("SceneName") to go to a different scene).
+/// 3. After a delay, the pass scene for the selected Level Type is loaded
+///    via PassSceneManager.LoadPassScene(levelType)
+/// Call StartExit() from another script (or StartExitTo("SceneName") to go to a specific scene by name instead).
 /// Requires DOTween (no extra modules needed).
 /// </summary>
 public class ExitTransition : MonoBehaviour
@@ -43,8 +44,8 @@ public class ExitTransition : MonoBehaviour
     [SerializeField] private AnimationCurve zoomCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
 
     [Header("Scene Change")]
-    [Tooltip("Name of the scene to load (must be added in File > Build Settings)")]
-    [SerializeField] private string nextSceneName;
+    [Tooltip("Which level this is. StartExit() loads its pass scene with PassSceneManager.LoadPassScene()")]
+    [SerializeField] private PassSceneManager.LevelType levelType = PassSceneManager.LevelType.Typist;
 
     [Tooltip("Seconds after the exit starts before the next scene is loaded")]
     [SerializeField] private float loadDelay = 2f;
@@ -58,6 +59,9 @@ public class ExitTransition : MonoBehaviour
     /// <summary>True once the exit has started</summary>
     public bool IsExiting => isExiting;
 
+    /// <summary>The level type selected in the Inspector</summary>
+    public PassSceneManager.LevelType LevelType => levelType;
+
     private void Awake()
     {
         if (targetCamera == null) targetCamera = Camera.main;
@@ -70,13 +74,16 @@ public class ExitTransition : MonoBehaviour
 
     // ===== Public control methods =====
 
-    /// <summary>Start the exit and load the scene set in Next Scene Name</summary>
+    /// <summary>Start the exit and load the pass scene for the Level Type selected in the Inspector</summary>
     public void StartExit()
     {
-        StartExitTo(nextSceneName);
+        if (isExiting) return;   // ignore repeated calls
+
+        isExiting = true;
+        StartCoroutine(ExitRoutine(null));
     }
 
-    /// <summary>Start the exit and load the given scene (instead of Next Scene Name)</summary>
+    /// <summary>Start the exit and load a specific scene by name (instead of the pass scene)</summary>
     public void StartExitTo(string sceneName)
     {
         if (isExiting) return;   // ignore repeated calls
@@ -99,6 +106,7 @@ public class ExitTransition : MonoBehaviour
 
     // ===== Exit sequence =====
 
+    /// <param name="sceneName">null = load the pass scene for levelType</param>
     private IEnumerator ExitRoutine(string sceneName)
     {
         // 1. Camera zooms in on the Player
@@ -110,7 +118,14 @@ public class ExitTransition : MonoBehaviour
         // 3. Wait, then load the next scene
         if (loadDelay > 0f) yield return new WaitForSeconds(loadDelay);
 
-        SceneManager.LoadScene(sceneName);
+        if (sceneName == null)
+        {
+            PassSceneManager.LoadPassScene(levelType);
+        }
+        else
+        {
+            SceneManager.LoadScene(sceneName);
+        }
     }
 
     private void ZoomToPlayer()

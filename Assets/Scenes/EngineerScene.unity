@@ -11230,6 +11230,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1113450559}
     - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: gameOverSceneName
+      value: MenuScene
+      objectReference: {fileID: 0}
+    - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: npcObjects.Array.size
       value: 14
       objectReference: {fileID: 0}
@@ -11385,6 +11389,10 @@ PrefabInstance:
       propertyPath: player
       value: 
       objectReference: {fileID: 915582421}
+    - target: {fileID: 4464440422401292969, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: levelType
+      value: 4
+      objectReference: {fileID: 0}
     - target: {fileID: 4464440422401292969, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: targetCamera
       value: 

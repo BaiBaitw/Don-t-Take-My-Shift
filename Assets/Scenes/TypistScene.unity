@@ -6611,7 +6611,7 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  nextSceneName: PassScene
+  levelType: 0
   loadDelay: 2
   showGizmos: 1
 --- !u!4 &1233401641 stripped
@@ -10663,6 +10663,10 @@ PrefabInstance:
       propertyPath: typeGameManager
       value: 
       objectReference: {fileID: 866030236}
+    - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: gameOverSceneName
+      value: MenuScene
+      objectReference: {fileID: 0}
     - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: 'npcObjects.Array.data[0]'
       value: 

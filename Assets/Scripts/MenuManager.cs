@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
@@ -202,6 +203,41 @@ public class MenuManager : MonoBehaviour
 
     /// <summary>Raised whenever SupermanSelected changes (true / false). Remember to unsubscribe in OnDisable.</summary>
     public static event System.Action<bool> OnSupermanSelectedChanged;
+
+    [Header("Iris Back Transition (when returning to the menu)")]
+    [Tooltip("Prefab spawned as the last child of the Canvas (drawn on top of everything) whenever the menu loads, e.g. an iris-open transition")]
+    [FormerlySerializedAs("fadeInPrefab")]
+    public GameObject irisBackTransitionPrefab;
+    [Tooltip("Canvas to spawn it in (empty = the root Canvas the level buttons are in)")]
+    [FormerlySerializedAs("fadeInCanvas")]
+    public Canvas irisBackTransitionCanvas;
+    [Tooltip("Seconds the transition stays on its first frame (child animations paused) before they start playing (real time)")]
+    public float irisBackTransitionHoldTime = 0.5f;
+    [Tooltip("Seconds AFTER the animations start playing before the object is destroyed (real time, ignores Time.timeScale)")]
+    [FormerlySerializedAs("fadeInDestroyDelay")]
+    public float irisBackTransitionDestroyDelay = 1.5f;
+    [Tooltip("Also spawn it the first time the menu loads after the game starts (otherwise only when coming back from another scene)")]
+    [FormerlySerializedAs("fadeInOnGameStart")]
+    public bool irisBackTransitionOnGameStart = false;
+
+    static bool menuLoadedBefore;
+    static int startupSceneHandle = -1; // the scene the game (or Play Mode) started in
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    static void RecordStartupScene()
+    {
+        startupSceneHandle = SceneManager.GetActiveScene().handle;
+    }
+
+    // Resets static state when entering Play Mode (works even with Domain Reload disabled)
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetStatics()
+    {
+        menuLoadedBefore = false;
+        startupSceneHandle = -1;
+        SupermanSelected = false;
+        OnSupermanSelectedChanged = null;
+    }
 
     // ------------------------- Runtime state -------------------------
     class Visual
@@ -387,7 +423,74 @@ public class MenuManager : MonoBehaviour
 
     void Start()
     {
+        // Any way of getting back to this scene counts (ReturnToMenu, CompleteLevel..., or a plain SceneManager.LoadScene)
+        // Only the very first load of the scene the game started in counts as "game start".
+        // Starting Play Mode from a level scene and then going to the menu also counts as returning.
+        bool isGameStart = !menuLoadedBefore && gameObject.scene.handle == startupSceneHandle;
+        menuLoadedBefore = true;
+        if (!isGameStart || irisBackTransitionOnGameStart) SpawnIrisBackTransition();
+
         Rebuild(false);
+    }
+
+    void SpawnIrisBackTransition()
+    {
+        if (irisBackTransitionPrefab == null)
+        {
+            Debug.LogWarning("[MenuManager] irisBackTransitionPrefab is not assigned, so no transition was spawned.", this);
+            return;
+        }
+
+        Canvas target = irisBackTransitionCanvas != null ? irisBackTransitionCanvas : (canvas != null ? canvas.rootCanvas : null);
+        if (target == null)
+        {
+            Debug.LogWarning("[MenuManager] No Canvas found for the IrisBackTransition prefab; assign irisBackTransitionCanvas.", this);
+            return;
+        }
+
+        GameObject transition = Instantiate(irisBackTransitionPrefab, target.transform, false);
+        transition.transform.SetAsLastSibling(); // last child = drawn on top
+        Debug.Log($"[MenuManager] Spawned \"{transition.name}\" under Canvas \"{target.name}\".", transition);
+        StartCoroutine(IrisBackTransitionRoutine(transition));
+    }
+
+    // Spawned -> hold on the first frame (animations paused) -> play animations -> destroy
+    IEnumerator IrisBackTransitionRoutine(GameObject go)
+    {
+        // Pause every Animator (keeps its first frame on screen)
+        Animator[] animators = go.GetComponentsInChildren<Animator>(true);
+        float[] animatorSpeeds = new float[animators.Length];
+        for (int i = 0; i < animators.Length; i++)
+        {
+            animatorSpeeds[i] = animators[i].speed;
+            animators[i].speed = 0f;
+        }
+
+        // Pause every legacy Animation clip as well
+        var states = new List<AnimationState>();
+        var stateSpeeds = new List<float>();
+        foreach (Animation anim in go.GetComponentsInChildren<Animation>(true))
+        {
+            foreach (AnimationState s in anim)
+            {
+                states.Add(s);
+                stateSpeeds.Add(s.speed);
+                s.speed = 0f;
+            }
+        }
+
+        if (irisBackTransitionHoldTime > 0f)
+            yield return new WaitForSecondsRealtime(irisBackTransitionHoldTime);
+
+        // Resume
+        for (int i = 0; i < animators.Length; i++)
+            if (animators[i] != null) animators[i].speed = animatorSpeeds[i];
+        for (int i = 0; i < states.Count; i++)
+            if (states[i] != null) states[i].speed = stateSpeeds[i];
+
+        if (irisBackTransitionDestroyDelay > 0f)
+            yield return new WaitForSecondsRealtime(irisBackTransitionDestroyDelay);
+        if (go != null) Destroy(go);
     }
 
     void OnValidate()

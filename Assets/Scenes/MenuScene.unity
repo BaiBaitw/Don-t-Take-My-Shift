@@ -366,7 +366,7 @@ MonoBehaviour:
   breatheAmount: 0.03
   breatheFrequency: 0.6
   phaseSpread: 1.1
-  revealDelay: 0
+  revealDelay: 2
   questionMarkHideEffect: 0
   questionMarkHideEase: 11
   questionMarkHideCurve:
@@ -460,6 +460,11 @@ MonoBehaviour:
   confirmSfx: {fileID: 0}
   supermanButtonName: supermanOption
   keepSupermanFlag: 0
+  irisBackTransitionPrefab: {fileID: 4117823848113485597, guid: 907789d7c5c18334485990989fc6e47e, type: 3}
+  irisBackTransitionCanvas: {fileID: 485106591}
+  irisBackTransitionHoldTime: 0.5
+  irisBackTransitionDestroyDelay: 3
+  irisBackTransitionOnGameStart: 1
 --- !u!1 &216260717
 GameObject:
   m_ObjectHideFlags: 0
@@ -789,6 +794,9 @@ MonoBehaviour:
   useUnscaledTime: 1
   guaranteeDirectionRatio: 1
   cancelContainerRotation: 0
+  randomizeAnimationStart: 1
+  animationSpeedMin: 1
+  animationSpeedMax: 1
   noSpawnAboveHeight: 0.9364806
   minSpawnSpacing: 12
   showGizmos: 1
