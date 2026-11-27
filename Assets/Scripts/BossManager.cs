@@ -94,6 +94,8 @@ public class BossManager : MonoBehaviour
     [Tooltip("How far below its prefab position it starts (UI units)")]
     public float bubbleChatSlideDistance = 300f;
     [Min(0f)] public float bubbleChatSlideDuration = 0.4f;
+    [Tooltip("When BossSpeech pops up, BossBubbleChat's Animator bool \"BubbleChat\" is set true for this many seconds, then back to false")]
+    [Min(0f)] public float bubbleChatAnimDuration = 1.5f;
 
     [Header("BossSpeech Scale-Up")]
     [Tooltip("Added to BossSpeech's prefab position (UI units). X = right, Y = up")]
@@ -192,6 +194,7 @@ public class BossManager : MonoBehaviour
     static readonly int SpeechHash = Animator.StringToHash("Speech");
     static readonly int HardbreathHash = Animator.StringToHash("Hardbreath");
     static readonly int BossWinsayingHash = Animator.StringToHash("BossWinsaying");
+    static readonly int BubbleChatHash = Animator.StringToHash("BubbleChat");   // on the BossBubbleChat prefab's Animator
     static readonly int[] AllHashes = { WalkHash, WalknSpeechHash, SpeechHash, HardbreathHash, BossWinsayingHash };
 
     Vector3 homePosition;          // Home (stop) point
@@ -576,6 +579,14 @@ public class BossManager : MonoBehaviour
         if (bossBubbleChatInstance != null) bossBubbleChatInstance.transform.SetAsLastSibling();
         bossSpeechInstance.SetActive(true);
 
+        // BossSpeech pops up -> play BossBubbleChat's "BubbleChat" animation for a while
+        if (bossBubbleChatInstance != null)
+        {
+            Animator chatAnimator = bossBubbleChatInstance.GetComponentInChildren<Animator>(true);
+            if (chatAnimator != null) StartCoroutine(BubbleChatAnimRoutine(chatAnimator));
+            else Debug.LogWarning("[BossManager] No Animator found on BossBubbleChat");
+        }
+
         TMP_Text speechText = bossSpeechInstance.GetComponentInChildren<TMP_Text>(true);
         if (speechText != null && bossLines != null && bossLines.Length > 0)
             speechText.text = bossLines[Random.Range(0, bossLines.Length)];
@@ -646,6 +657,13 @@ public class BossManager : MonoBehaviour
 
         DestroyBubble();
         bubbleRoutine = null;
+    }
+
+    IEnumerator BubbleChatAnimRoutine(Animator chatAnimator)
+    {
+        chatAnimator.SetBool(BubbleChatHash, true);
+        yield return new WaitForSeconds(bubbleChatAnimDuration);
+        if (chatAnimator != null) chatAnimator.SetBool(BubbleChatHash, false);   // skip if already destroyed
     }
 
     // ----- Small UI tween helpers (stop safely if the object is destroyed) -----

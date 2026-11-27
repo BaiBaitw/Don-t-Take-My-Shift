@@ -429,6 +429,10 @@ PrefabInstance:
       propertyPath: targetCanvas
       value: 
       objectReference: {fileID: 462255676}
+    - target: {fileID: 1549529745263558273, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: bubbleChatAnimDuration
+      value: 6
+      objectReference: {fileID: 0}
     - target: {fileID: 2293143754656099798, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
       propertyPath: m_Name
       value: Boss

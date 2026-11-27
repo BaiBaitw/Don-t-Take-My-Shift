@@ -65,6 +65,9 @@ public class ScamManager : MonoBehaviour
     [SerializeField] private int minDigits = 8;
     [Tooltip("Starting maximum number of digits per question (* and # not counted)")]
     [SerializeField] private int maxDigits = 15;
+    [Tooltip("Chance (0-1) that a question contains one \"-\". A question never has more than one.")]
+    [Range(0f, 1f)]
+    [SerializeField] private float dashChance = 0.7f;
 
     [Header("Difficulty")]
     [Tooltip("How many digits IncreaseDifficulty() adds to the minimum")]
@@ -544,32 +547,20 @@ public class ScamManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Generates a random phone number, e.g. *113-5532-*525, *0912-345-678*, **42-8810-3376.
-    /// Digits are split into 2-4 groups (2-5 digits each), separated by "-" (no spaces).
-    /// * is randomly inserted at the start, after a "-", or at the end (# is not used in questions).
+    /// Generates a random phone number, e.g. *0912-345678, 113553*2525, **4288-103376*.
+    /// The digits are either one block, or split into two blocks by a single "-"
+    /// (each block has at least 2 digits). A question never has more than one "-".
+    /// * is randomly inserted at the start, right after the "-", or at the end (# is not used in questions).
     /// "-" is formatting only and does not need to be pressed.
     /// </summary>
     private string GenerateNumber()
     {
         int digitCount = Random.Range(currentMinDigits, currentMaxDigits + 1);
 
-        // Decide group count; each group holds 2-5 digits
-        int groupMin = Mathf.Max(2, Mathf.CeilToInt(digitCount / 5f));
-        int groupMax = Mathf.Max(groupMin, Mathf.Min(4, digitCount / 2));
-        int groupCount = Random.Range(groupMin, groupMax + 1);
-
-        int[] sizes = new int[groupCount];
-        for (int i = 0; i < groupCount; i++) sizes[i] = 2;
-        int extra = digitCount - groupCount * 2;
-        while (extra > 0)
-        {
-            int idx = Random.Range(0, groupCount);
-            if (sizes[idx] < 5)
-            {
-                sizes[idx]++;
-                extra--;
-            }
-        }
+        // Split position: 0 = no "-", otherwise number of digits before the "-"
+        int splitAt = 0;
+        if (digitCount >= 4 && Random.value < dashChance)
+            splitAt = Random.Range(2, digitCount - 1); // both sides get at least 2 digits
 
         sb.Clear();
 
@@ -581,17 +572,15 @@ public class ScamManager : MonoBehaviour
             if (Random.value < 0.2f) sb.Append(sym);
         }
 
-        for (int g = 0; g < groupCount; g++)
+        for (int d = 0; d < digitCount; d++)
         {
-            if (g > 0)
+            if (splitAt > 0 && d == splitAt)
             {
                 sb.Append('-');
-                // A symbol may follow a "-", e.g. "-*525"
+                // A symbol may follow the "-", e.g. "-*525"
                 if (Random.value < 0.2f) sb.Append(RandomSymbol());
             }
-
-            for (int d = 0; d < sizes[g]; d++)
-                sb.Append((char)('0' + Random.Range(0, 10)));
+            sb.Append((char)('0' + Random.Range(0, 10)));
         }
 
         // Trailing symbol (25% chance)
