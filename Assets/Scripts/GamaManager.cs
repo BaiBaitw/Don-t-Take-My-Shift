@@ -57,7 +57,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private int stagesToExit = 3;
 
     [Header("Game Over Transition")]
-    [Tooltip("When ON, Game Over plays the transition (camera zoom, Game UI slide down, IrisTransition, scene change). When OFF, none of it happens")]
+    [Tooltip("When ON, Game Over plays the transition (camera zoom, Game UI slide down, IrisTransition) before changing scene. When OFF, no transition is played, but the scene still changes to Game Over Scene Name after Game Over Load Delay seconds")]
     [SerializeField] private bool enableGameOverTransition = true;
 
     [Tooltip("Camera to zoom in on Game Over. Leave empty to use Camera.main")]
@@ -90,7 +90,7 @@ public class GameManager : MonoBehaviour
     [Tooltip("Seconds after Game Over starts before IrisTransition is spawned")]
     [SerializeField] private float irisDelay = 1f;
 
-    [Tooltip("Seconds after IrisTransition is spawned before the next scene is loaded")]
+    [Tooltip("Seconds before the next scene is loaded. Transition ON: counted from when IrisTransition is spawned. Transition OFF: counted from when Game Over starts")]
     [SerializeField] private float gameOverLoadDelay = 2f;
 
     [Tooltip("Name of the scene to load after Game Over (must be added in File > Build Settings)")]
@@ -452,8 +452,9 @@ public class GameManager : MonoBehaviour
             player.SendMessage("GameOver", SendMessageOptions.DontRequireReceiver);
         }
 
-        // Zoom in on the Player, spawn IrisTransition, then load the Game Over scene
-        if (enableGameOverTransition && !gameOverTransitionStarted)
+        // (Transition ON) zoom in, spawn IrisTransition, then load the Game Over scene
+        // (Transition OFF) just wait, then load the Game Over scene
+        if (!gameOverTransitionStarted)
         {
             gameOverTransitionStarted = true;
             StartCoroutine(GameOverTransitionRoutine());
@@ -461,22 +462,27 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Game Over transition: camera zooms in on the Player,
-    /// IrisTransition is spawned after irisDelay, the scene changes after gameOverLoadDelay.
+    /// Game Over sequence.
+    /// Transition ON: camera zooms in on the Player, Game UI slides down,
+    /// IrisTransition is spawned after irisDelay, the scene changes gameOverLoadDelay after that.
+    /// Transition OFF: the scene changes gameOverLoadDelay after Game Over starts.
     /// </summary>
     private IEnumerator GameOverTransitionRoutine()
     {
-        // 1. Camera zooms in on the Player
-        GameOverZoomToPlayer();
+        if (enableGameOverTransition)
+        {
+            // 1. Camera zooms in on the Player
+            GameOverZoomToPlayer();
 
-        // 1b. Game UI slides down (runs alongside, with its own delay)
-        DropGameUI();
+            // 1b. Game UI slides down (runs alongside, with its own delay)
+            DropGameUI();
 
-        // 2. Wait, then spawn IrisTransition on top of the Canvas
-        if (irisDelay > 0f) yield return new WaitForSeconds(irisDelay);
-        SpawnIris();
+            // 2. Wait, then spawn IrisTransition on top of the Canvas
+            if (irisDelay > 0f) yield return new WaitForSeconds(irisDelay);
+            SpawnIris();
+        }
 
-        // 3. Wait, then load the next scene
+        // 3. Wait, then load the next scene (always happens)
         if (gameOverLoadDelay > 0f) yield return new WaitForSeconds(gameOverLoadDelay);
 
         if (string.IsNullOrEmpty(gameOverSceneName))

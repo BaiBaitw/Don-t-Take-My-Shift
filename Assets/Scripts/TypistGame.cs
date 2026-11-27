@@ -296,7 +296,7 @@ public class TypistGame : MonoBehaviour
     }
 
     /// <summary>
-    /// Validates player input character.
+    /// Validates player input character (case-insensitive).
     /// </summary>
     private void CheckInputChar(char inputChar)
     {
@@ -304,7 +304,8 @@ public class TypistGame : MonoBehaviour
 
         char expectedChar = currentTargetText[currentIndex];
 
-        if (inputChar == expectedChar)
+        // Case-insensitive: "A" and "a" both count as correct, so players never fail on letter case
+        if (char.ToLowerInvariant(inputChar) == char.ToLowerInvariant(expectedChar))
         {
             // Correct input: hide Error Redbox if previously shown
             if (hasError)

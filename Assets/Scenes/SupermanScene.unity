@@ -2737,10 +2737,10 @@ MonoBehaviour:
   screenShake: {fileID: 0}
   errorShakeDuration: 0
   errorShakeStrength: 0
-  minOptionCount: 3
-  maxOptionCount: 4
+  minOptionCount: 4
+  maxOptionCount: 5
   minIncreaseStep: 1
-  maxIncreaseStep: 2
+  maxIncreaseStep: 1
   optionSpacing: 2
   answerSpacing: 2
   optionSlideSpeed: 300

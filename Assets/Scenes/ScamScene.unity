@@ -3841,7 +3841,7 @@ MonoBehaviour:
     m_ColorMultiplier: 1
     m_FadeDuration: 0.1
   m_SpriteState:
-    m_HighlightedSprite: {fileID: 4426436412716741791, guid: 38d278fdbc9df81449e17651235e023a, type: 3}
+    m_HighlightedSprite: {fileID: 0}
     m_PressedSprite: {fileID: -5525136387652372000, guid: e24be517cc4dbe443b5890b6a1c35c92, type: 3}
     m_SelectedSprite: {fileID: 0}
     m_DisabledSprite: {fileID: 0}
@@ -6351,7 +6351,7 @@ MonoBehaviour:
   keepFlippedOnLose: 0
   guard: {fileID: 9155835704089432961, guid: 6a4182081d5c3b346ac166904196405b, type: 3}
   guardSpawnDelay: 0
-  guardSideDistance: 1.78
+  guardSideDistance: 1.63
   guardSpawnDownDistance: 3.72
   guardMoveSpeed: 2
   guardPauseAtCorner: 0
@@ -6359,7 +6359,7 @@ MonoBehaviour:
   guardFacesRightByDefault: 1
   freezePlayerAnimationBeforeGuard: 0
   scamPlayerStartDelay: 0
-  scamPlayerLeftDistance: 1.61
+  scamPlayerLeftDistance: 1.67
   scamPlayerLeftSpeed: 2
   scamPlayerPauseBeforeDown: 0
   scamPlayerDownDistance: 7.07
@@ -12187,23 +12187,23 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 89183232657497700, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: m_LocalScale.x
-      value: 0.49556196
+      value: 0.06469341
       objectReference: {fileID: 0}
     - target: {fileID: 89183232657497700, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: m_LocalScale.y
-      value: 0.49556196
+      value: 0.06469341
       objectReference: {fileID: 0}
     - target: {fileID: 89183232657497700, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: m_LocalScale.z
-      value: 0.49556196
+      value: 0.06469341
       objectReference: {fileID: 0}
     - target: {fileID: 89183232657497700, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 1012
+      value: 592
       objectReference: {fileID: 0}
     - target: {fileID: 89183232657497700, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -626
+      value: -391
       objectReference: {fileID: 0}
     - target: {fileID: 89183232657497700, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: m_ConstrainProportionsScale
@@ -12211,7 +12211,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2757172747992449811, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: m_fontSize
-      value: 76.9
+      value: 751.54
       objectReference: {fileID: 0}
     - target: {fileID: 2757172747992449811, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: m_fontColor.b
@@ -12227,7 +12227,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2757172747992449811, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: m_fontSizeBase
-      value: 76.9
+      value: 751.54
       objectReference: {fileID: 0}
     - target: {fileID: 2757172747992449811, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: m_fontColor32.rgba
@@ -12353,6 +12353,14 @@ PrefabInstance:
       propertyPath: typeGameManager
       value: 
       objectReference: {fileID: 64186936}
+    - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: gameOverLoadDelay
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
+      propertyPath: showGameOverGizmo
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: npcObjects.Array.size
       value: 14

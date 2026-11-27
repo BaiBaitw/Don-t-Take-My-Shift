@@ -6307,10 +6307,10 @@ MonoBehaviour:
   screenShake: {fileID: 1288744540}
   errorShakeDuration: 0
   errorShakeStrength: 0
-  minOptionCount: 3
-  maxOptionCount: 4
+  minOptionCount: 4
+  maxOptionCount: 5
   minIncreaseStep: 1
-  maxIncreaseStep: 2
+  maxIncreaseStep: 1
   optionSpacing: 2
   answerSpacing: 2
   optionSlideSpeed: 300
@@ -11207,7 +11207,7 @@ PrefabInstance:
       objectReference: {fileID: 352225212}
     - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: totalCounts
-      value: 1
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: totalLevels
