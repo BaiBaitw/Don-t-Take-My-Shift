@@ -21859,7 +21859,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: minNpcCount
-      value: 7
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: startButton
