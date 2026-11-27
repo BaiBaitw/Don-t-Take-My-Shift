@@ -14,15 +14,18 @@ public class TypistGame : MonoBehaviour
     public Transform textContainer;
 
     [Header("【Length & Probability Settings】")]
-    [Range(5, 15)]
+    [Range(5, 20)]
     [Tooltip("Minimum character count per line.")]
     public int minLength = 5;
-    [Range(5, 15)]
+    [Range(5, 20)]
     [Tooltip("Maximum character count per line.")]
     public int maxLength = 15;
     [Range(0f, 1f)]
     [Tooltip("Probability of selecting from the phrase bank (0 = all random, 1 = all phrase bank).")]
     public float phraseProbability = 0.3f;
+    [Min(0)]
+    [Tooltip("How many characters each IncreaseDifficulty() call adds to both Min Length and Max Length.")]
+    public int difficultyStep = 2;
 
     [Header("【Text Transparency Settings】")]
     [Range(0f, 1f)]
@@ -89,7 +92,7 @@ public class TypistGame : MonoBehaviour
     private Transform normalCursorHome;
     private Transform errorCursorHome;
 
-    // Phrase bank dictionary: letter-writing phrases, occasionally AI-related (Length as Key, Array of 10 phrases as Value)
+    // Phrase bank dictionary: letter-writing phrases, occasionally AI-related (Length as Key, Array of 20 phrases as Value)
     private Dictionary<int, string[]> aiPhraseBank;
 
     private readonly string charPool = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNOPQRSTUVWXYZ ";
@@ -196,20 +199,18 @@ public class TypistGame : MonoBehaviour
         }
     }
 
-    // Upper limit for line length (matches the [Range(5, 15)] sliders and the phrase bank)
-    private const int MaxAllowedLength = 15;
-    // How many characters each IncreaseDifficulty() call adds
-    private const int DifficultyStep = 2;
+    // Upper limit for line length (matches the [Range(5, 20)] sliders and the phrase bank)
+    private const int MaxAllowedLength = 20;
 
     /// <summary>
-    /// Increases difficulty: adds 2 characters to both minLength and maxLength.
-    /// Each value stops at 15 once it reaches the limit. Can be called from other scripts.
+    /// Increases difficulty: adds difficultyStep characters to both minLength and maxLength.
+    /// Each value stops at 20 once it reaches the limit. Can be called from other scripts.
     /// Takes effect from the next generated line.
     /// </summary>
     public void IncreaseDifficulty()
     {
-        minLength = Mathf.Min(minLength + DifficultyStep, MaxAllowedLength);
-        maxLength = Mathf.Min(maxLength + DifficultyStep, MaxAllowedLength);
+        minLength = Mathf.Min(minLength + difficultyStep, MaxAllowedLength);
+        maxLength = Mathf.Min(maxLength + difficultyStep, MaxAllowedLength);
 
         // Safety: keep minLength from exceeding maxLength
         if (minLength > maxLength) minLength = maxLength;
@@ -647,7 +648,7 @@ public class TypistGame : MonoBehaviour
 
     /// <summary>
     /// Initializes the phrase bank: letter-writing phrases with occasional AI-related ones
-    /// (Lengths 5 to 15, 10 entries each, exact length matching, letters and spaces only).
+    /// (Lengths 5 to 20, 20 entries each, exact length matching, letters and spaces only).
     /// </summary>
     private void InitializeAIPhraseBank()
     {
@@ -656,57 +657,114 @@ public class TypistGame : MonoBehaviour
             // 長度 5
             { 5, new string[] {
                 "Hello", "Sorry", "Yours", "Hi Jo", "Hi Ed",
-                "Hi Bo", "Hi Ma", "Later", "Peace", "Hi AI"
+                "Hi Bo", "Hi Ma", "Later", "Peace", "Adieu",
+                "Hi Mo", "Hi Pa", "Hi Ty", "Howdy", "Truly",
+                "Hi Di", "Hi Vi", "Hi ya", "Hi AI", "Yo AI"
             }},
             // 長度 6
             { 6, new string[] {
                 "Thanks", "Cheers", "Warmly", "Fondly", "Hi Amy",
-                "Hi Tom", "Hi Mom", "Hi bro", "Hi sis", "Hey AI"
+                "Hi Tom", "Hi Mom", "Hi bro", "Hi sis", "Hey Ed",
+                "Hey Jo", "Hi Ben", "Hi Dad", "Hi Dan", "Hi Eva",
+                "Hi Joe", "Hi Ken", "Hi Kim", "Hi Max", "Hey AI"
             }},
             // 長度 7
             { 7, new string[] {
                 "Regards", "See you", "Bye now", "Hi team", "Hi dear",
-                "Love ya", "Miss ya", "Dear Jo", "Love Ma", "Dear AI"
+                "Love ya", "Miss ya", "Dear Jo", "Love Ma", "Be safe",
+                "Be well", "Bye bye", "Dear Ma", "Go well", "Hey Dad",
+                "Hey Mom", "Hey bro", "Hey sis", "Hi Anna", "Dear AI"
             }},
             // 長度 8
             { 8, new string[] {
                 "Dear Sir", "Dear Mom", "Dear Dad", "Dear Ann", "Love you",
-                "Miss you", "Big news", "Hi folks", "Your son", "AI reply"
+                "Miss you", "Big news", "Hi folks", "Your son", "Any news",
+                "Bad news", "Big hugs", "Dear Amy", "Dear Ben", "Dear Bob",
+                "Dear Dan", "Dear Eva", "Dear Joe", "Dear Kim", "AI reply"
             }},
             // 長度 9
             { 9, new string[] {
                 "Thank you", "Sincerely", "Take care", "Talk soon", "With love",
-                "Dear team", "Good luck", "Good news", "Stay safe", "AI drafts"
+                "Dear team", "Good luck", "Good news", "Stay safe", "Cold here",
+                "Cordially", "Dear Jack", "Dear John", "Dear Lucy", "Dear Mama",
+                "Dear Mary", "Dear Nana", "Dear Papa", "AI drafts", "Hi AI bot"
             }},
             // 長度 10
             { 10, new string[] {
                 "Dear Madam", "Dear Sarah", "Hello team", "I miss you", "I am sorry",
-                "Great news", "Good night", "Any update", "Dear diary", "Sent by AI"
+                "Great news", "Good night", "Any update", "Dear diary", "Big thanks",
+                "Cheers all", "Dear Santa", "Ever yours", "Forgive me", "Hi Grandma",
+                "Hi Grandpa", "Hi sweetie", "Sent by AI", "AI read it", "AI says hi"
             }},
             // 長度 11
             { 11, new string[] {
                 "Best wishes", "Warm wishes", "Yours truly", "Many thanks", "Dear friend",
-                "Hi everyone", "How are you", "Let me know", "All my love", "Bye for now"
+                "Hi everyone", "How are you", "Let me know", "All my love", "Bye for now",
+                "All is well", "Cheers mate", "Coffee soon", "Dear client", "Dear doctor",
+                "Dear editor", "Dear guests", "Dear reader", "AI wrote it", "Dear AI bot"
             }},
             // 長度 12
             { 12, new string[] {
                 "Best regards", "Kind regards", "Warm regards", "Good morning", "See you soon",
-                "Thanks again", "Please reply", "Dear manager", "Running late", "Dear Grandma"
+                "Thanks again", "Please reply", "Dear manager", "Running late", "Dear Grandma",
+                "All the best", "Always yours", "Baby is here", "Call at noon", "Call me soon",
+                "Dear members", "Dear parents", "Dear partner", "AI reply now", "AI sent this"
             }},
             // 長度 13
             { 13, new string[] {
                 "Keep in touch", "Get well soon", "Forever yours", "Save the date", "Call me later",
-                "Dear customer", "Please advise", "Out of office", "AI wrote this", "Drafted by AI"
+                "Dear customer", "Please advise", "Out of office", "All good here", "Best from Amy",
+                "Bye for today", "Catch up soon", "Dear Dr Green", "Dear Mr Smith", "Dear Ms Jones",
+                "Dear landlord", "Dear students", "Dinner at six", "AI wrote this", "Drafted by AI"
             }},
             // 長度 14
             { 14, new string[] {
                 "Happy birthday", "Dear colleague", "Please confirm", "Quick question", "Welcome aboard",
-                "See you Monday", "Lunch tomorrow", "With gratitude", "AI fixed typos", "Dear AI helper"
+                "See you Monday", "Lunch tomorrow", "With gratitude", "Dear Mrs Brown", "Enjoy the show",
+                "Enjoy your day", "Happy holidays", "Happy new home", "How are things", "Just saying hi",
+                "Love from home", "Meeting at ten", "AI fixed typos", "Dear AI helper", "AI drafts mail"
             }},
             // 長度 15
             { 15, new string[] {
                 "Yours sincerely", "Write back soon", "Looking forward", "Have a nice day", "Merry Christmas",
-                "You are invited", "Until next time", "Got your letter", "Written with AI", "My AI assistant"
+                "You are invited", "Until next time", "Got your letter", "Enjoy the party", "Enjoy your trip",
+                "Gentle reminder", "Good luck today", "Hope this helps", "Hope to see you", "How is the baby",
+                "How is your mom", "Just a reminder", "Written with AI", "My AI assistant", "AI made a draft"
+            }},
+            // 長度 16
+            { 16, new string[] {
+                "Dear Tooth Fairy", "Faithfully yours", "Happy graduation", "Happy retirement", "Have a safe trip",
+                "Hope all is well", "Hope you had fun", "How are the kids", "How was the trip", "Human wrote this",
+                "Just checking in", "Love from London", "Many many thanks", "Meeting tomorrow", "Please call back",
+                "Please see below", "Regards from Tom", "AI drafted reply", "AI fixed my mail", "AI is my pen pal"
+            }},
+            // 長度 17
+            { 17, new string[] {
+                "All the very best", "Dear sir or madam", "Friendly reminder", "Good luck at work", "Happy Mothers Day",
+                "Happy anniversary", "Happy wedding day", "Have a great trip", "Have a great week", "Have a lovely day",
+                "Hope it goes well", "Hope to hear soon", "Hope you are fine", "Hope you are okay", "Hope you are well",
+                "Please be on time", "Please check this", "AI does my emails", "AI helps me write", "Dear AI assistant"
+            }},
+            // 長度 18
+            { 18, new string[] {
+                "All my love to you", "Best wishes to all", "Dear valued client", "Hope you are happy", "I read your letter",
+                "Just to say thanks", "Just wanted to say", "My dear old friend", "Please let me know", "Postcard from Bali",
+                "Reminder for today", "Respectfully yours", "Say hi to your mom", "See you after work", "Stay safe and warm",
+                "Thanks for the tip", "Thanks for waiting", "With love and hugs", "AI answers my mail", "AI checked grammar"
+            }},
+            // 長度 19
+            { 19, new string[] {
+                "Best of luck to you", "Can we talk tonight", "Congrats on the job", "Dear Aunt and Uncle", "Dear Mr and Mrs Lee",
+                "Dear hiring manager", "Everyone says hello", "Forever your friend", "Give my love to all", "Greetings from Rome",
+                "Have a nice weekend", "I am sorry for that", "I loved your letter", "Please call me back", "See you next Monday",
+                "Sorry for the delay", "Thank you for today", "AI made this letter", "AI read your letter", "Reply drafted by AI"
+            }},
+            // 長度 20
+            { 20, new string[] {
+                "Best wishes from Tom", "Can you call me back", "Congrats on your win", "Dear valued customer", "Have a happy holiday",
+                "Have a wonderful day", "Hope to see you soon", "Hope you feel better", "I am so proud of you", "I miss you very much",
+                "I will be there soon", "Kiss the kids for me", "Love you to the moon", "Please write me back", "See you at the party",
+                "See you next weekend", "Talk to you tomorrow", "AI sends its regards", "AI writes my letters", "AI wrote this letter"
             }}
         };
     }

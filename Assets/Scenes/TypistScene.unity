@@ -2137,7 +2137,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -692, y: -395}
+  m_AnchoredPosition: {x: -769, y: -395}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &417466967
@@ -2158,7 +2158,7 @@ MonoBehaviour:
     m_Top: 0
     m_Bottom: 0
   m_ChildAlignment: 0
-  m_Spacing: 10
+  m_Spacing: 5
   m_ChildForceExpandWidth: 1
   m_ChildForceExpandHeight: 1
   m_ChildControlWidth: 0
@@ -4250,7 +4250,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &767252373
 RectTransform:
   m_ObjectHideFlags: 0
@@ -4751,10 +4751,11 @@ MonoBehaviour:
   letterPrefab: {fileID: 5781912369694890341, guid: 38de97e7e24c00d4c89b9055efeafed4, type: 3}
   textContainer: {fileID: 417466966}
   minLength: 5
-  maxLength: 7
+  maxLength: 10
   phraseProbability: 1
+  difficultyStep: 3
   uncompletedAlpha: 0.5
-  spacePlaceholder: 48
+  spacePlaceholder: 105
   normalCursor: {fileID: 1426638244}
   errorCursor: {fileID: 1559324615}
   cursorBlinkInterval: 0.5
@@ -7477,7 +7478,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1426638245
 RectTransform:
   m_ObjectHideFlags: 0
@@ -7487,7 +7488,7 @@ RectTransform:
   m_GameObject: {fileID: 1426638244}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.58889, y: 1, z: 1}
+  m_LocalScale: {x: 0.6, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 767252373}
@@ -8385,7 +8386,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1559324616
 RectTransform:
   m_ObjectHideFlags: 0
@@ -8395,7 +8396,7 @@ RectTransform:
   m_GameObject: {fileID: 1559324615}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.58889, y: 1, z: 1}
+  m_LocalScale: {x: 0.6, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 767252373}
@@ -8418,7 +8419,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 0.4745098}
+  m_Color: {r: 0.45492655, g: 0.29231653, b: 0.29231653, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -10640,7 +10641,7 @@ PrefabInstance:
       objectReference: {fileID: 352225212}
     - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: totalCounts
-      value: 1
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: timerManager

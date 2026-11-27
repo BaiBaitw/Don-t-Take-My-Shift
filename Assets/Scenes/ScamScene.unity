@@ -1025,14 +1025,14 @@ MonoBehaviour:
   correctColor: {r: 0.16078432, g: 0.09411766, b: 0.19215688, a: 1}
   errorDisplaySeconds: 0.2
   keyPressVisualSeconds: 0.12
-  minDigits: 5
-  maxDigits: 8
-  minDigitsIncrease: 1
-  maxDigitsIncrease: 1
+  minDigits: 4
+  maxDigits: 6
+  minDigitsIncrease: 2
+  maxDigitsIncrease: 2
   digitsLimit: 0
-  resetProgressOnMistake: 0
+  resetProgressOnMistake: 1
   disableButtonsOnStop: 0
-  mistakePenalty: 0.2
+  mistakePenalty: 2
   penalizeWrongCall: 1
   shakeOnMistake: 1
   overrideShakeSettings: 0
@@ -12327,7 +12327,7 @@ PrefabInstance:
       objectReference: {fileID: 352225212}
     - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: totalCounts
-      value: 1
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: totalLevels

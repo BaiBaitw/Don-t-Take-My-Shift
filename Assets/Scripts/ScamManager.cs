@@ -544,10 +544,10 @@ public class ScamManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Generates a random phone number, e.g. *113-5532 *525, *0912-345-678*, **42 8810-3376.
-    /// Digits are split into 2-4 groups (2-5 digits each), separated by "-" or a space.
-    /// * is randomly inserted at the start, after a space, or at the end (# is not used in questions).
-    /// "-" and spaces are formatting only and do not need to be pressed.
+    /// Generates a random phone number, e.g. *113-5532-*525, *0912-345-678*, **42-8810-3376.
+    /// Digits are split into 2-4 groups (2-5 digits each), separated by "-" (no spaces).
+    /// * is randomly inserted at the start, after a "-", or at the end (# is not used in questions).
+    /// "-" is formatting only and does not need to be pressed.
     /// </summary>
     private string GenerateNumber()
     {
@@ -585,10 +585,9 @@ public class ScamManager : MonoBehaviour
         {
             if (g > 0)
             {
-                bool space = Random.value < 0.5f;
-                sb.Append(space ? ' ' : '-');
-                // A symbol may follow a space, e.g. " *525"
-                if (space && Random.value < 0.35f) sb.Append(RandomSymbol());
+                sb.Append('-');
+                // A symbol may follow a "-", e.g. "-*525"
+                if (Random.value < 0.2f) sb.Append(RandomSymbol());
             }
 
             for (int d = 0; d < sizes[g]; d++)
@@ -610,7 +609,7 @@ public class ScamManager : MonoBehaviour
         if (phoneText == null) return;
 
         // Color everything before the next character the player must press.
-        // This way formatting characters ("-" and spaces) turn green as soon as
+        // This way formatting characters ("-") turn green as soon as
         // the player reaches them, so they are never mistaken for keys to press.
         int end = progress < keyPositions.Count
             ? keyPositions[progress] - 1        // up to (not including) the next key

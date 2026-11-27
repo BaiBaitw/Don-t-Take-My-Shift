@@ -21,7 +21,7 @@ public class BossManager : MonoBehaviour
     public enum ChatShowAnim { Linear, EaseOut, Pop, Elastic }
 
     /// <summary>General easing used by the BossBubbleChat slide and BossSpeech scale animations</summary>
-    public enum UIEase { Linear, EaseOut, EaseInOut, Back, Elastic, Bounce }
+    public enum UIEase { Linear, EaseOut, EaseInOut, Back, Elastic, Bounce, EaseIn, BackIn }
 
     /// <summary>Chat bubble disappear animation</summary>
     public enum ChatHideAnim { Instant, Shrink, ShrinkBack, Fade, ShrinkAndFade }
@@ -44,6 +44,8 @@ public class BossManager : MonoBehaviour
     public GameObject bossSpeechPrefab;
     [Tooltip("BossBubbleChat PREFAB (RectTransform). Spawned before BossSpeech and always drawn on top of it")]
     public GameObject bossBubbleChatPrefab;
+    [Tooltip("blackGradient PREFAB (RectTransform + Image). Spawned under the Canvas, fades in behind BossBubbleChat and BossSpeech")]
+    public GameObject blackGradientPrefab;
     [Tooltip("Canvas the bubbles are spawned under (as its last children). If empty, the first Canvas in the scene is used")]
     public Canvas targetCanvas;
     [Tooltip("Chat bubble ROOT under the Boss object (hidden by default). Scales around its own origin. Text / sprites can be children")]
@@ -104,6 +106,25 @@ public class BossManager : MonoBehaviour
     [Min(0f)] public float bossSpeechScaleDuration = 0.3f;
     [Tooltip("Point it grows from (0,0 = bottom-left, 1,0 = bottom-right)")]
     public Vector2 bossSpeechScalePivot = new Vector2(1f, 0f);
+
+    [Header("blackGradient Fade-In (spawned right before BossSpeech)")]
+    public UIEase blackGradientFadeInEase = UIEase.Linear;
+    [Min(0f)] public float blackGradientFadeInDuration = 0.3f;
+    [Tooltip("On: BossSpeech waits until the fade-in finishes. Off: both play at the same time")]
+    public bool waitForGradientBeforeSpeech = false;
+
+    [Header("Hide Animations (all three play together)")]
+    [Tooltip("BossBubbleChat moves down by this distance (UI units)")]
+    public float bubbleChatHideDistance = 300f;
+    public UIEase bubbleChatHideEase = UIEase.EaseIn;
+    [Min(0f)] public float bubbleChatHideDuration = 0.3f;
+
+    [Tooltip("BossSpeech shrinks toward its scale pivot")]
+    public UIEase bossSpeechHideEase = UIEase.BackIn;
+    [Min(0f)] public float bossSpeechHideDuration = 0.25f;
+
+    public UIEase blackGradientHideEase = UIEase.Linear;
+    [Min(0f)] public float blackGradientHideDuration = 0.3f;
 
     [TextArea(1, 2)]
     public string[] bossLines = new string[]
@@ -178,6 +199,7 @@ public class BossManager : MonoBehaviour
     Coroutine actRoutine, sayRoutine, bubbleRoutine;
     GameObject bossSpeechInstance;     // Currently spawned BossSpeech
     GameObject bossBubbleChatInstance; // Currently spawned BossBubbleChat
+    GameObject blackGradientInstance;  // Currently spawned blackGradient
 
     // Chat bubble state
     Coroutine chatRoutine;
@@ -533,7 +555,22 @@ public class BossManager : MonoBehaviour
             }
         }
 
-        // 2. BossSpeech: spawn, keep BossBubbleChat on top, then scale up from the bottom-right
+        // 2. blackGradient: spawn and fade in (drawn below BossSpeech and BossBubbleChat)
+        if (blackGradientPrefab != null)
+        {
+            blackGradientInstance = Instantiate(blackGradientPrefab, canvas.transform, false);
+            blackGradientInstance.transform.SetAsLastSibling();
+            if (bossBubbleChatInstance != null) bossBubbleChatInstance.transform.SetAsLastSibling();   // keep BossBubbleChat above it
+            blackGradientInstance.SetActive(true);
+
+            CanvasGroup gradientGroup = GetOrAddCanvasGroup(blackGradientInstance);
+            gradientGroup.alpha = 0f;
+            Coroutine fade = StartCoroutine(AnimateAlpha(gradientGroup, 0f, 1f, blackGradientFadeInDuration, blackGradientFadeInEase));
+            if (waitForGradientBeforeSpeech) yield return fade;
+        }
+
+        // 3. BossSpeech: spawn, then scale up from the bottom-right
+        //    Draw order (bottom -> top): blackGradient, BossSpeech, BossBubbleChat
         bossSpeechInstance = Instantiate(bossSpeechPrefab, canvas.transform, false);
         bossSpeechInstance.transform.SetAsLastSibling();
         if (bossBubbleChatInstance != null) bossBubbleChatInstance.transform.SetAsLastSibling();
@@ -567,17 +604,97 @@ public class BossManager : MonoBehaviour
             speechRt.localScale = fullScale;
         }
 
-        // 3. Fully shown -> wait -> next stage -> remove both
+        // 4. Fully shown -> wait -> next stage
         yield return new WaitForSeconds(bubbleShowTime);
+
+        // Longest hide animation, so hiding can start early and finish right when the next stage begins
+        float longest = 0f;
+        if (bossBubbleChatInstance != null) longest = Mathf.Max(longest, bubbleChatHideDuration);
+        if (bossSpeechInstance != null) longest = Mathf.Max(longest, bossSpeechHideDuration);
+        if (blackGradientInstance != null) longest = Mathf.Max(longest, blackGradientHideDuration);
 
         if (callNextStage)
         {
             float delay = CallNextButtonAndGetDelay();
-            yield return new WaitForSeconds(delay);
+            yield return new WaitForSeconds(Mathf.Max(0f, delay - longest));
         }
+
+        // 5. Hide all three together (ends when nextStageDelay ends), then remove them
+        if (bossBubbleChatInstance != null)
+        {
+            RectTransform rt = bossBubbleChatInstance.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                Vector2 from = rt.anchoredPosition;
+                StartCoroutine(AnimateAnchored(rt, from, from - new Vector2(0f, bubbleChatHideDistance), bubbleChatHideDuration, bubbleChatHideEase));
+            }
+        }
+
+        if (bossSpeechInstance != null)
+        {
+            Transform t = bossSpeechInstance.transform;
+            StartCoroutine(AnimateScale(t, t.localScale, Vector3.zero, bossSpeechHideDuration, bossSpeechHideEase));
+        }
+
+        if (blackGradientInstance != null)
+        {
+            CanvasGroup cg = GetOrAddCanvasGroup(blackGradientInstance);
+            StartCoroutine(AnimateAlpha(cg, cg.alpha, 0f, blackGradientHideDuration, blackGradientHideEase));
+        }
+
+        yield return new WaitForSeconds(longest);
 
         DestroyBubble();
         bubbleRoutine = null;
+    }
+
+    // ----- Small UI tween helpers (stop safely if the object is destroyed) -----
+
+    IEnumerator AnimateAnchored(RectTransform rt, Vector2 from, Vector2 to, float duration, UIEase ease)
+    {
+        float time = 0f;
+        while (time < duration)
+        {
+            if (rt == null) yield break;
+            time += Time.deltaTime;
+            rt.anchoredPosition = Vector2.LerpUnclamped(from, to, Ease(ease, Mathf.Clamp01(time / duration)));
+            yield return null;
+        }
+        if (rt != null) rt.anchoredPosition = to;
+    }
+
+    IEnumerator AnimateScale(Transform t, Vector3 from, Vector3 to, float duration, UIEase ease)
+    {
+        float time = 0f;
+        while (time < duration)
+        {
+            if (t == null) yield break;
+            time += Time.deltaTime;
+            t.localScale = Vector3.LerpUnclamped(from, to, Ease(ease, Mathf.Clamp01(time / duration)));
+            yield return null;
+        }
+        if (t != null) t.localScale = to;
+    }
+
+    IEnumerator AnimateAlpha(CanvasGroup cg, float from, float to, float duration, UIEase ease)
+    {
+        float time = 0f;
+        while (time < duration)
+        {
+            if (cg == null) yield break;
+            time += Time.deltaTime;
+            cg.alpha = Mathf.LerpUnclamped(from, to, Ease(ease, Mathf.Clamp01(time / duration)));
+            yield return null;
+        }
+        if (cg != null) cg.alpha = to;
+    }
+
+    static CanvasGroup GetOrAddCanvasGroup(GameObject go)
+    {
+        CanvasGroup cg = go.GetComponent<CanvasGroup>();
+        if (cg == null) cg = go.AddComponent<CanvasGroup>();
+        cg.blocksRaycasts = false;   // decoration only, never blocks clicks
+        return cg;
     }
 
     /// <summary>Changes a RectTransform's pivot without moving it on screen</summary>
@@ -599,6 +716,8 @@ public class BossManager : MonoBehaviour
             case UIEase.Back: return EaseOutBack(p);
             case UIEase.Elastic: return EaseOutElastic(p);
             case UIEase.Bounce: return EaseOutBounce(p);
+            case UIEase.EaseIn: return p * p;
+            case UIEase.BackIn: return EaseInBack(p);
             default: return p;
         }
     }
@@ -635,6 +754,11 @@ public class BossManager : MonoBehaviour
         {
             Destroy(bossBubbleChatInstance);
             bossBubbleChatInstance = null;
+        }
+        if (blackGradientInstance != null)
+        {
+            Destroy(blackGradientInstance);
+            blackGradientInstance = null;
         }
     }
 

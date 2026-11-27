@@ -11968,7 +11968,7 @@ MonoBehaviour:
   errorDisplayDuration: 1
   screenShake: {fileID: 638395875}
   countdownBar: {fileID: 1801211424}
-  penaltyAmount: 0.1
+  penaltyAmount: 2
   cursorTexture: {fileID: 2800000, guid: f4f1c81d57f65844795a0319de08ce06, type: 3}
   cursorHotspot: {x: -1.3, y: 14}
   lineWidth: 0.08
@@ -21867,7 +21867,7 @@ PrefabInstance:
       objectReference: {fileID: 352225212}
     - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: totalCounts
-      value: 1
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: totalLevels

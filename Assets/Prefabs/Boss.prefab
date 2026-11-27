@@ -477,6 +477,7 @@ MonoBehaviour:
   gameManager: {fileID: 0}
   bossSpeechPrefab: {fileID: 4154840975195906037, guid: a370a8b60eae9df4a8e69ff45a3a10d3, type: 3}
   bossBubbleChatPrefab: {fileID: 5194055715634574214, guid: cb8d94d0a948aaf4fb79a06f33b199be, type: 3}
+  blackGradientPrefab: {fileID: 1370402061553006608, guid: c8d7f468047e9a240be191b77ca2b4e8, type: 3}
   targetCanvas: {fileID: 0}
   chatBubble: {fileID: 405356323829067244}
   enterFrom: 2
@@ -510,6 +511,16 @@ MonoBehaviour:
   bossSpeechOvershoot: 1.02
   bossSpeechScaleDuration: 0.4
   bossSpeechScalePivot: {x: 1, y: 0}
+  blackGradientFadeInEase: 0
+  blackGradientFadeInDuration: 0.3
+  waitForGradientBeforeSpeech: 1
+  bubbleChatHideDistance: 300
+  bubbleChatHideEase: 0
+  bubbleChatHideDuration: 0.3
+  bossSpeechHideEase: 0
+  bossSpeechHideDuration: 0.25
+  blackGradientHideEase: 0
+  blackGradientHideDuration: 0.3
   bossLines:
   - We're cutting jobs. Bye!
   - AI is cheaper than you.
@@ -531,7 +542,7 @@ MonoBehaviour:
   - Don't worry, AI's got it.
   - We're going AI-first now.
   - 'Headcount: zero needed.'
-  chatShowAnim: 2
+  chatShowAnim: 1
   chatShowDuration: 0.5
   chatDisplayTime: 3
   chatHideAnim: 2
