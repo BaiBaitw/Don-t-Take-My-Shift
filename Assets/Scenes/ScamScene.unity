@@ -1025,8 +1025,11 @@ MonoBehaviour:
   correctColor: {r: 0.16078432, g: 0.09411766, b: 0.19215688, a: 1}
   errorDisplaySeconds: 0.2
   keyPressVisualSeconds: 0.12
-  minDigits: 4
-  maxDigits: 6
+  minDigits: 8
+  maxDigits: 10
+  useRealPhoneFormats: 1
+  dashChance: 0.7
+  starCodeChance: 0.25
   minDigitsIncrease: 2
   maxDigitsIncrease: 2
   digitsLimit: 0
@@ -12327,7 +12330,7 @@ PrefabInstance:
       objectReference: {fileID: 352225212}
     - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: totalCounts
-      value: 4
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 3838081984079701929, guid: ce44e950cfa26d941be3d02bd6f0437c, type: 3}
       propertyPath: totalLevels

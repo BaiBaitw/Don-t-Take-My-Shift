@@ -65,9 +65,14 @@ public class ScamManager : MonoBehaviour
     [SerializeField] private int minDigits = 8;
     [Tooltip("Starting maximum number of digits per question (* and # not counted)")]
     [SerializeField] private int maxDigits = 15;
-    [Tooltip("Chance (0-1) that a question contains one \"-\". A question never has more than one.")]
+    [Tooltip("Generate numbers that follow real phone formats from different countries (falls back to random numbers when no real format fits the digit range)")]
+    [SerializeField] private bool useRealPhoneFormats = true;
+    [Tooltip("Chance (0-1) that the \"-\" is shown. A question never has more than one.")]
     [Range(0f, 1f)]
     [SerializeField] private float dashChance = 0.7f;
+    [Tooltip("Chance (0-1) that a real-format number starts with a star code such as *67 (adds 2 digits)")]
+    [Range(0f, 1f)]
+    [SerializeField] private float starCodeChance = 0.25f;
 
     [Header("Difficulty")]
     [Tooltip("How many digits IncreaseDifficulty() adds to the minimum")]
@@ -119,6 +124,82 @@ public class ScamManager : MonoBehaviour
     private readonly Dictionary<Selectable, Coroutine> pressRoutines = new Dictionary<Selectable, Coroutine>();
     private readonly List<int> keyPositions = new List<int>(); // Indices of pressable characters in the display string
     private readonly StringBuilder sb = new StringBuilder(32);
+    private readonly List<int> formatCandidates = new List<int>();
+
+    // --------------------------- Real Phone Formats ---------------------------
+    /// <summary>
+    /// A real phone number layout: fixed leading digits (one is picked at random),
+    /// total digit count, and where the single "-" goes.
+    /// </summary>
+    private readonly struct PhoneFormat
+    {
+        public readonly int TotalDigits;
+        public readonly int DashAfter;      // number of digits before the "-"
+        public readonly string[] Prefixes;  // fixed leading digits, one is picked at random
+
+        public PhoneFormat(int totalDigits, int dashAfter, params string[] prefixes)
+        {
+            TotalDigits = totalDigits;
+            DashAfter = dashAfter;
+            Prefixes = prefixes;
+        }
+    }
+
+    // Based on real domestic and international dialing formats.
+    // Real numbers often use 2 separators; these are shortened to a single "-".
+    // ITU E.164 limits a phone number to 15 digits, so nothing here is longer.
+    private static readonly PhoneFormat[] RealFormats =
+    {
+        // ---- 8 digits ----
+        new PhoneFormat( 8, 4, "2", "3", "5", "6", "9"),                 // Hong Kong            9123-4567
+        new PhoneFormat( 8, 4, "6", "8", "9"),                           // Singapore            9123-4567
+        new PhoneFormat( 8, 4, "6"),                                     // Macau                6612-3456
+
+        // ---- 9 digits ----
+        new PhoneFormat( 9, 2, "03", "05", "06", "07"),                  // Taiwan landline      07-1234567
+        new PhoneFormat( 9, 5, "9"),                                     // Brazil mobile        91234-5678
+
+        // ---- 10 digits ----
+        new PhoneFormat(10, 4, "09"),                                    // Taiwan mobile        0912-345678
+        new PhoneFormat(10, 2, "02", "04"),                              // Taiwan landline      02-23456789
+        new PhoneFormat(10, 2, "03", "06"),                              // Japan landline       03-12345678
+        new PhoneFormat(10, 3, "06", "08", "09"),                        // Thailand mobile      081-2345678
+        new PhoneFormat(10, 4, "03", "07", "08", "09"),                  // Vietnam mobile       0912-345678
+        new PhoneFormat(10, 3, "012", "013", "016", "017", "019"),       // Malaysia mobile      012-3456789
+        new PhoneFormat(10, 5, "6", "7", "8", "9"),                      // India mobile         98765-43210
+        new PhoneFormat(10, 4, "04"),                                    // Australia mobile     0412-345678
+        new PhoneFormat(10, 2, "06", "07"),                              // France mobile        06-12345678
+        new PhoneFormat(10, 3, "2", "3", "4", "5", "6", "7", "8", "9"),  // USA / Canada         212-5551234
+        new PhoneFormat(10, 2, "33", "55", "81"),                        // Mexico               55-12345678
+
+        // ---- 11 digits ----
+        new PhoneFormat(11, 3, "070", "080", "090"),                     // Japan mobile         090-12345678
+        new PhoneFormat(11, 3, "010"),                                   // Korea mobile         010-12345678
+        new PhoneFormat(11, 3, "13", "15", "17", "18", "19"),            // China mobile         138-12345678
+        new PhoneFormat(11, 3, "010", "020", "021"),                     // China landline       021-12345678
+        new PhoneFormat(11, 4, "09"),                                    // Philippines mobile   0917-1234567
+        new PhoneFormat(11, 3, "011"),                                   // Malaysia mobile      011-12345678
+        new PhoneFormat(11, 5, "07"),                                    // UK mobile            07123-456789
+        new PhoneFormat(11, 3, "020"),                                   // UK London            020-12345678
+
+        // ---- 12 digits ----
+        new PhoneFormat(12, 4, "081", "082", "085", "087", "089"),       // Indonesia mobile     0812-34567890
+        new PhoneFormat(12, 4, "015", "016", "017"),                     // Germany mobile       0151-23456789
+
+        // ---- 13-15 digits: international calls dialed from Taiwan (IDD 002 + country code) ----
+        new PhoneFormat(13, 5, "002658", "002659"),                      // to Singapore         00265-91234567
+        new PhoneFormat(14, 6, "0028525", "0028526", "0028529"),         // to Hong Kong         002852-91234567
+        new PhoneFormat(14, 4, "0021"),                                  // to USA               0021-2125551234
+        new PhoneFormat(14, 5, "002614"),                                // to Australia mobile  00261-412345678
+        new PhoneFormat(14, 5, "002601"),                                // to Malaysia mobile   00260-123456789
+        new PhoneFormat(15, 5, "0028170", "0028180", "0028190"),         // to Japan mobile      00281-9012345678
+        new PhoneFormat(15, 5, "0028210"),                               // to Korea mobile      00282-1012345678
+        new PhoneFormat(15, 5, "002447"),                                // to UK mobile         00244-7123456789
+    };
+
+    // North American star codes: *67 hides caller ID, *82 shows it (each adds 2 digits)
+    private static readonly string[] StarCodes = { "*67", "*82" };
+    private const int StarCodeDigits = 2;
 
     private string currentNumber = string.Empty;
     private string lastNumber = string.Empty;
@@ -547,13 +628,84 @@ public class ScamManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Generates a random phone number, e.g. *0912-345678, 113553*2525, **4288-103376*.
+    /// Generates the next question. Uses a real phone format when one fits the current
+    /// digit range; otherwise falls back to a random number. Never more than one "-".
+    /// </summary>
+    private string GenerateNumber()
+    {
+        if (useRealPhoneFormats)
+        {
+            string real = GenerateRealNumber();
+            if (real != null) return real;
+        }
+        return GenerateRandomNumber();
+    }
+
+    /// <summary>
+    /// Picks a real phone format whose digit count is within the current range,
+    /// e.g. 0912-345678, 02-23456789, 98765-43210, *67-2125551234, 00281-9012345678.
+    /// Returns null when no real format fits (e.g. after difficulty goes past 15 digits).
+    /// </summary>
+    private string GenerateRealNumber()
+    {
+        bool withStar = Random.value < starCodeChance;
+        if (!CollectFormats(withStar))
+        {
+            withStar = !withStar;
+            if (!CollectFormats(withStar)) return null;
+        }
+
+        PhoneFormat f = RealFormats[formatCandidates[Random.Range(0, formatCandidates.Count)]];
+        string prefix = f.Prefixes[Random.Range(0, f.Prefixes.Length)];
+        bool showDash = Random.value < dashChance;
+
+        sb.Clear();
+
+        // With a star code, the "-" goes after the code and the number itself stays in one block
+        if (withStar)
+        {
+            sb.Append(StarCodes[Random.Range(0, StarCodes.Length)]);
+            if (showDash) sb.Append('-');
+        }
+
+        int dashAt = (!withStar && showDash) ? f.DashAfter : -1;
+
+        for (int i = 0; i < f.TotalDigits; i++)
+        {
+            if (i == dashAt) sb.Append('-');
+
+            char c;
+            if (i < prefix.Length) c = prefix[i];
+            else if (i == prefix.Length) c = (char)('0' + Random.Range(1, 10)); // first free digit is never 0
+            else c = (char)('0' + Random.Range(0, 10));
+            sb.Append(c);
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>Fills formatCandidates with formats that fit the current digit range.</summary>
+    private bool CollectFormats(bool withStar)
+    {
+        formatCandidates.Clear();
+        int extra = withStar ? StarCodeDigits : 0;
+
+        for (int i = 0; i < RealFormats.Length; i++)
+        {
+            int digits = RealFormats[i].TotalDigits + extra;
+            if (digits >= currentMinDigits && digits <= currentMaxDigits)
+                formatCandidates.Add(i);
+        }
+        return formatCandidates.Count > 0;
+    }
+
+    /// <summary>
+    /// Fallback: random number, e.g. *0912-345678, 113553*2525, **4288-103376*.
     /// The digits are either one block, or split into two blocks by a single "-"
     /// (each block has at least 2 digits). A question never has more than one "-".
     /// * is randomly inserted at the start, right after the "-", or at the end (# is not used in questions).
-    /// "-" is formatting only and does not need to be pressed.
     /// </summary>
-    private string GenerateNumber()
+    private string GenerateRandomNumber()
     {
         int digitCount = Random.Range(currentMinDigits, currentMaxDigits + 1);
 

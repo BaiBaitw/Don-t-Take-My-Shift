@@ -58110,9 +58110,11 @@ MonoBehaviour:
   correctColor: {r: 0.16078432, g: 0.09411766, b: 0.19215688, a: 1}
   errorDisplaySeconds: 0.2
   keyPressVisualSeconds: 0.12
-  minDigits: 4
-  maxDigits: 6
+  minDigits: 8
+  maxDigits: 80
+  useRealPhoneFormats: 1
   dashChance: 0.7
+  starCodeChance: 0.25
   minDigitsIncrease: 2
   maxDigitsIncrease: 2
   digitsLimit: 0
