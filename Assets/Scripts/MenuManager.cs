@@ -241,6 +241,17 @@ public class MenuManager : MonoBehaviour
     public Volume fisheyeVolume;
     [Tooltip("Post-processing can't distort a Screen Space - Overlay Canvas. If on, the Canvas is switched to Screen Space - Camera (drawn on top) when the fisheye starts, so the UI is distorted too")]
     public bool fisheyeMoveCanvasToCamera = true;
+
+    [Header("Return From Level - Fisheye Zoom Out")]
+    [Tooltip("Played when another scene returns with MenuManager.ReturnToMenuWithFisheye() (or the other ...WithFisheye methods). Uses selectZoomAmount, selectZoomFocus and the fisheye settings above")]
+    public float returnZoomHoldTime = 0.2f;
+    [Tooltip("Seconds to zoom out from the zoomed-in fisheye view back to normal")]
+    public float returnZoomDuration = 1.2f;
+    public EaseType returnZoomEase = EaseType.OutCubic;
+    [Tooltip("Used when returnZoomEase is Custom")]
+    public AnimationCurve returnZoomCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+    [Tooltip("Don't spawn the IrisBackTransition when returning with the fisheye (the zoom-out is the transition)")]
+    public bool returnFisheyeSkipsIris = true;
     [Tooltip("Use time that ignores Time.timeScale")]
     public bool useUnscaledTime = true;
 
@@ -372,6 +383,7 @@ public class MenuManager : MonoBehaviour
     public AudioClip introAppearSfx;
 
     static bool menuLoadedBefore;
+    static bool pendingFisheyeReturn; // set by ReturnToMenuWithFisheye()
     static int startupSceneHandle = -1; // the scene the game (or Play Mode) started in
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -385,6 +397,7 @@ public class MenuManager : MonoBehaviour
     static void ResetStatics()
     {
         menuLoadedBefore = false;
+        pendingFisheyeReturn = false;
         startupSceneHandle = -1;
         SupermanSelected = false;
         OnSupermanSelectedChanged = null;
@@ -447,6 +460,8 @@ public class MenuManager : MonoBehaviour
     int pointerPressIndex = -1; // slot currently held down by the mouse / touch
     int keyPressIndex = -1;     // slot currently held down by Enter
     GameObject currentIrisTransition;
+    Coroutine returnZoomRoutine;
+    bool returnZoomPlaying;
 
     // Title screen state
     bool introPlaying;
@@ -628,7 +643,11 @@ public class MenuManager : MonoBehaviour
         // Starting Play Mode from a level scene and then going to the menu also counts as returning.
         bool isGameStart = !menuLoadedBefore && gameObject.scene.handle == startupSceneHandle;
         menuLoadedBefore = true;
-        if (!isGameStart || irisBackTransitionOnGameStart) SpawnIrisBackTransition();
+        bool fisheyeReturn = pendingFisheyeReturn && !isGameStart;
+        pendingFisheyeReturn = false;
+
+        bool skipIris = fisheyeReturn && returnFisheyeSkipsIris;
+        if ((!isGameStart || irisBackTransitionOnGameStart) && !skipIris) SpawnIrisBackTransition();
 
         if (isGameStart && enableTitleScreen)
         {
@@ -638,6 +657,7 @@ public class MenuManager : MonoBehaviour
         {
             Rebuild(false);
             SetupWithoutIntro();
+            if (fisheyeReturn) returnZoomRoutine = StartCoroutine(ReturnZoomRoutine());
         }
     }
 
@@ -1028,6 +1048,7 @@ public class MenuManager : MonoBehaviour
         // 0. Stay on the previously played level (the menu opens focused on it)
         if (unlockWaitForIrisTransition)
             while (currentIrisTransition != null) yield return null;
+        while (returnZoomPlaying) yield return null; // also wait for the fisheye zoom-out
         yield return Wait(unlockHoldOnPreviousLevel);
 
         for (int k = from; k < to; k++)
@@ -1418,46 +1439,106 @@ public class MenuManager : MonoBehaviour
         float startDelay = Mathf.Max(0f, loadDelay - selectZoomDuration);
         if (startDelay > 0f) yield return new WaitForSecondsRealtime(startDelay);
 
+        ZoomRig rig = BuildZoomRig(index, UseFisheye(index));
         float amount = Mathf.Max(0.01f, selectZoomAmount);
+        float dur = Mathf.Max(0f, selectZoomDuration);
+        float t = 0f;
+        while (true)
+        {
+            float p = dur > 0f ? Mathf.Clamp01(t / dur) : 1f;
+            float z = Mathf.LerpUnclamped(1f, amount, Ease(selectZoomEase, p, selectZoomCurve));
+            ApplyZoomRig(rig, z, Ease(fisheyeEase, p, fisheyeCurve));
+            if (p >= 1f) break;
+            yield return null;
+            t += Time.unscaledDeltaTime;
+        }
+    }
+
+    // Reverse of the select zoom: starts zoomed in + fisheye, then zooms out to normal
+    IEnumerator ReturnZoomRoutine()
+    {
+        returnZoomPlaying = true;
+        int index = FrontIndex; // the menu opens focused on the level that was just played
+        ZoomRig rig = BuildZoomRig(index, true);
+        float amount = Mathf.Max(0.01f, selectZoomAmount);
+
+        ApplyZoomRig(rig, amount, 1f); // fully zoomed in from the very first frame
+        if (returnZoomHoldTime > 0f) yield return new WaitForSecondsRealtime(returnZoomHoldTime);
+
+        float dur = Mathf.Max(0f, returnZoomDuration);
+        float t = 0f;
+        while (true)
+        {
+            float p = dur > 0f ? Mathf.Clamp01(t / dur) : 1f;
+            float q = Ease(returnZoomEase, p, returnZoomCurve);
+            ApplyZoomRig(rig, Mathf.LerpUnclamped(amount, 1f, q), 1f - q);
+            if (p >= 1f) break;
+            yield return null;
+            t += Time.unscaledDeltaTime;
+        }
+        ApplyZoomRig(rig, 1f, 0f);
+        if (rig.lens != null) rig.lens.active = false;
+        returnZoomPlaying = false;
+        returnZoomRoutine = null;
+    }
+
+    /// <summary>Plays the fisheye zoom-out now (Inspector test button).</summary>
+    public void PlayReturnZoom()
+    {
+        if (returnZoomRoutine != null) StopCoroutine(returnZoomRoutine);
+        returnZoomRoutine = StartCoroutine(ReturnZoomRoutine());
+    }
+
+    class ZoomRig
+    {
+        public Camera cam;
+        public Vector3 camStart, camShift;
+        public float camSize, camFov;
+        public RectTransform root;
+        public Vector3 rootStartPos, rootStartScale = Vector3.one, pivotLocal;
+        public LensDistortion lens;
+    }
+
+    // Captures everything needed to zoom toward a level: camera, Canvas root and (optionally) the fisheye
+    ZoomRig BuildZoomRig(int index, bool useFisheye)
+    {
+        var rig = new ZoomRig();
 
         // Focus point on screen
         Vector2 screenFocus = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
-        RectTransform btnRect = options[index] != null ? options[index].rect : null;
+        RectTransform btnRect = (index >= 0 && index < slotCount && options[index] != null) ? options[index].rect : null;
         if (selectZoomFocus == ZoomFocus.SelectedLevel && btnRect != null)
             screenFocus = RectTransformUtility.WorldToScreenPoint(UICamera(), btnRect.position);
 
-        // Camera setup
+        // Camera
         Camera cam = introCamera != null ? introCamera : Camera.main;
         if (cameraRoutine != null) { StopCoroutine(cameraRoutine); cameraRoutine = null; }
-        bool doCam = enableSelectZoom && selectZoomCamera && cam != null;
-        Vector3 camStart = Vector3.zero, camShift = Vector3.zero;
-        float camSize = 0f, camFov = 0f;
-        if (doCam)
+        if (enableSelectZoom && selectZoomCamera && cam != null)
         {
-            camStart = cam.transform.position;
-            camSize = cam.orthographicSize;
-            camFov = cam.fieldOfView;
-            float depth = Mathf.Abs(Vector3.Dot(-camStart, cam.transform.forward));
+            rig.cam = cam;
+            rig.camStart = cam.transform.position;
+            rig.camSize = cam.orthographicSize;
+            rig.camFov = cam.fieldOfView;
+            float depth = Mathf.Abs(Vector3.Dot(-rig.camStart, cam.transform.forward));
             if (depth < 0.01f) depth = 10f;
             Vector3 f = cam.ScreenToWorldPoint(new Vector3(screenFocus.x, screenFocus.y, depth));
             Vector3 c = cam.ScreenToWorldPoint(new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, depth));
-            camShift = f - c; // camera moves toward the focus point as it zooms
+            rig.camShift = f - c; // camera moves toward the focus point as it zooms
         }
 
-        // Fisheye setup (before the Canvas setup, because it may change the Canvas render mode)
-        LensDistortion lens = null;
-        if (UseFisheye(index) && cam != null)
+        // Fisheye (before the Canvas, because it may change the Canvas render mode)
+        if (useFisheye && cam != null)
         {
-            lens = GetLensDistortion();
-            if (lens != null)
+            rig.lens = GetLensDistortion();
+            if (rig.lens != null)
             {
-                lens.active = true;
-                lens.intensity.overrideState = true;
-                lens.scale.overrideState = true;
-                lens.center.overrideState = true;
-                lens.intensity.value = 0f;
-                lens.scale.value = 1f;
-                lens.center.value = new Vector2(
+                rig.lens.active = true;
+                rig.lens.intensity.overrideState = true;
+                rig.lens.scale.overrideState = true;
+                rig.lens.center.overrideState = true;
+                rig.lens.intensity.value = 0f;
+                rig.lens.scale.value = 1f;
+                rig.lens.center.value = new Vector2(
                     Mathf.Clamp01(screenFocus.x / Mathf.Max(1, Screen.width)),
                     Mathf.Clamp01(screenFocus.y / Mathf.Max(1, Screen.height)));
 
@@ -1468,56 +1549,47 @@ public class MenuManager : MonoBehaviour
             }
         }
 
-        // Canvas setup
-        RectTransform root = null;
-        Vector3 rootStartPos = Vector3.zero, rootStartScale = Vector3.one, pivotLocal = Vector3.zero;
+        // Canvas
         if (enableSelectZoom && selectZoomCanvas)
         {
             Canvas rc = canvas != null ? canvas.rootCanvas : null;
             if (rc != null && rc.renderMode != RenderMode.WorldSpace)
             {
-                root = zoomCanvasRoot != null ? zoomCanvasRoot : WrapCanvasInZoomRoot(rc);
+                RectTransform root = zoomCanvasRoot != null ? zoomCanvasRoot : WrapCanvasInZoomRoot(rc);
                 if (root != null && root.parent != null)
                 {
-                    rootStartPos = root.localPosition;
-                    rootStartScale = root.localScale;
+                    rig.root = root;
+                    rig.rootStartPos = root.localPosition;
+                    rig.rootStartScale = root.localScale;
                     Camera uiCam = rc.renderMode == RenderMode.ScreenSpaceOverlay ? null : rc.worldCamera;
                     RectTransformUtility.ScreenPointToWorldPointInRectangle((RectTransform)root.parent, screenFocus, uiCam, out Vector3 worldPivot);
-                    pivotLocal = root.parent.InverseTransformPoint(worldPivot);
-                    pivotLocal.z = rootStartPos.z;
+                    rig.pivotLocal = root.parent.InverseTransformPoint(worldPivot);
+                    rig.pivotLocal.z = rig.rootStartPos.z;
                 }
             }
         }
+        return rig;
+    }
 
-        float t = 0f;
-        float dur = Mathf.Max(0f, selectZoomDuration);
-        while (true)
+    // z = zoom factor (1 = normal), fish = 0..1 fisheye amount
+    void ApplyZoomRig(ZoomRig rig, float z, float fish)
+    {
+        z = Mathf.Max(0.01f, z);
+        if (rig.cam != null)
         {
-            float p = dur > 0f ? Mathf.Clamp01(t / dur) : 1f;
-            float z = Mathf.LerpUnclamped(1f, amount, Ease(selectZoomEase, p, selectZoomCurve));
-            z = Mathf.Max(0.01f, z);
-
-            if (doCam && cam != null)
-            {
-                cam.transform.position = camStart + camShift * (1f - 1f / z);
-                if (cam.orthographic) cam.orthographicSize = camSize / z;
-                else cam.fieldOfView = camFov / z;
-            }
-            if (root != null)
-            {
-                root.localScale = rootStartScale * z;
-                root.localPosition = pivotLocal + (rootStartPos - pivotLocal) * z;
-            }
-            if (lens != null)
-            {
-                float f = Ease(fisheyeEase, p, fisheyeCurve);
-                lens.intensity.value = Mathf.LerpUnclamped(0f, fisheyeIntensity, f);
-                lens.scale.value = Mathf.Max(0.01f, Mathf.LerpUnclamped(1f, fisheyeScale, f));
-            }
-
-            if (p >= 1f) break;
-            yield return null;
-            t += Time.unscaledDeltaTime;
+            rig.cam.transform.position = rig.camStart + rig.camShift * (1f - 1f / z);
+            if (rig.cam.orthographic) rig.cam.orthographicSize = rig.camSize / z;
+            else rig.cam.fieldOfView = rig.camFov / z;
+        }
+        if (rig.root != null)
+        {
+            rig.root.localScale = rig.rootStartScale * z;
+            rig.root.localPosition = rig.pivotLocal + (rig.rootStartPos - rig.pivotLocal) * z;
+        }
+        if (rig.lens != null)
+        {
+            rig.lens.intensity.value = Mathf.LerpUnclamped(0f, fisheyeIntensity, fish);
+            rig.lens.scale.value = Mathf.Max(0.01f, Mathf.LerpUnclamped(1f, fisheyeScale, fish));
         }
     }
 
@@ -1764,6 +1836,29 @@ public class MenuManager : MonoBehaviour
         if (idx < 0) Debug.LogWarning("[MenuManager] Current level unknown (never launched from the menu); returning to menu only.");
         else CompleteLevel(idx + 1);
         ReturnToMenu();
+    }
+
+    /// <summary>Go back to the menu and play the fisheye zoom-out there (e.g. from the Superman level).</summary>
+    public static void ReturnToMenuWithFisheye()
+    {
+        pendingFisheyeReturn = true;
+        ReturnToMenu();
+    }
+
+    /// <summary>Level levelNumber (1-based) cleared -> unlock next, back to the menu with the fisheye zoom-out.</summary>
+    public static void CompleteLevelAndReturnWithFisheye(int levelNumber)
+    {
+        CompleteLevel(levelNumber);
+        ReturnToMenuWithFisheye();
+    }
+
+    /// <summary>Level last launched from the menu cleared -> unlock next, back to the menu with the fisheye zoom-out.</summary>
+    public static void CompleteCurrentLevelAndReturnWithFisheye()
+    {
+        int idx = PlayerPrefs.GetInt(KeyLastLaunched, -1);
+        if (idx < 0) Debug.LogWarning("[MenuManager] Current level unknown (never launched from the menu); returning to menu only.");
+        else CompleteLevel(idx + 1);
+        ReturnToMenuWithFisheye();
     }
 
     /// <summary>Clear all progress.</summary>
@@ -2025,6 +2120,7 @@ public class MenuManagerEditor : Editor
             }
             if (GUILayout.Button("Press Front Level (loads scene)")) m.TrySelect(m.FrontIndex, false);
             if (GUILayout.Button("Replay Title Screen")) m.PlayIntro();
+            if (GUILayout.Button("Test Fisheye Zoom Out (return)")) m.PlayReturnZoom();
         }
         else
         {

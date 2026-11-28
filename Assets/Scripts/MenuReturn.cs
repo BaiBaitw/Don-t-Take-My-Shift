@@ -19,4 +19,17 @@ public class MenuReturn : MonoBehaviour
         if (levelNumber > 0) MenuManager.CompleteLevelAndReturn(levelNumber);
         else MenuManager.CompleteCurrentLevelAndReturn();
     }
+
+    /// <summary>Go back to the menu with the fisheye zoom-out (not cleared).</summary>
+    public void BackToMenuWithFisheye()
+    {
+        MenuManager.ReturnToMenuWithFisheye();
+    }
+
+    /// <summary>Level cleared: unlock the next level and go back to the menu with the fisheye zoom-out.</summary>
+    public void CompleteAndBackToMenuWithFisheye()
+    {
+        if (levelNumber > 0) MenuManager.CompleteLevelAndReturnWithFisheye(levelNumber);
+        else MenuManager.CompleteCurrentLevelAndReturnWithFisheye();
+    }
 }

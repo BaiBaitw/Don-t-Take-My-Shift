@@ -213,6 +213,41 @@ public class SupermanGameManager : GameManager
     [Tooltip("After the intro, put the Canvas back to how it was (e.g. Screen Space - Overlay)")]
     [SerializeField] private bool introRestoreCanvas = true;
 
+    [Header("Leave Buttons (after Game Over)")]
+    [Tooltip("Reloads this scene WITHOUT the fisheye zoom-out (the countdown still plays). Empty = found by name \"restartButton\" (hidden objects included)")]
+    [SerializeField] private Button restartButton;
+    [Tooltip("Zooms in (Home Zoom-in settings), then calls MenuManager.CompleteCurrentLevelAndReturnWithFisheye(). Empty = found by name \"homeButton\" (hidden objects included)")]
+    [SerializeField] private Button homeButton;
+
+    [Header("Home Zoom-in (homeButton -> Menu)")]
+    [Tooltip("Play the zoom-in before going back to the Menu")]
+    [SerializeField] private bool playHomeZoom = true;
+    [Tooltip("Player = zoom in on Player Object, Target = on Home Focus Target, ScreenCenter = on the middle of the screen")]
+    [SerializeField] private IntroFocus homeFocus = IntroFocus.Player;
+    [SerializeField] private Transform homeFocusTarget;
+    [Tooltip("Offset added to the focus point (world units)")]
+    [SerializeField] private Vector2 homeFocusOffset = Vector2.zero;
+    [Tooltip("Seconds of zooming in")]
+    [SerializeField] private float homeZoomDuration = 1f;
+    [Tooltip("Seconds to wait at the end of the zoom before the Menu loads")]
+    [SerializeField] private float homeHoldTime = 0.1f;
+    [Tooltip("Zoom at the end (2 = twice as close)")]
+    [SerializeField] private float homeZoomAmount = 2f;
+    [SerializeField] private bool homeZoomCamera = true;
+    [SerializeField] private bool homeZoomCanvas = true;
+    [SerializeField] private MenuManager.EaseType homeZoomEase = MenuManager.EaseType.InCubic;
+    [Tooltip("Used when Home Zoom Ease is Custom")]
+    [SerializeField] private AnimationCurve homeZoomCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+    [Tooltip("Add the fisheye during the zoom-in")]
+    [SerializeField] private bool homeFisheye = true;
+    [Tooltip("Distortion at the end of the zoom-in. Positive and negative bend in opposite directions: try both")]
+    [Range(-1f, 1f)][SerializeField] private float homeFisheyeIntensity = -0.6f;
+    [Tooltip("Lens Distortion 'Scale' at the end (below 1 shrinks the image to hide stretched edges, above 1 crops in)")]
+    [Range(0.01f, 5f)][SerializeField] private float homeFisheyeScale = 1f;
+    [SerializeField] private MenuManager.EaseType homeFisheyeEase = MenuManager.EaseType.InCubic;
+    [Tooltip("Used when Home Fisheye Ease is Custom")]
+    [SerializeField] private AnimationCurve homeFisheyeCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+
     [Header("Start Countdown (when Debug Mode is OFF)")]
     [Tooltip("TextMeshPro - Text (UI) under the Canvas. Shows 3, 2, 1, GO, then is hidden")]
     [SerializeField] private TMP_Text countdownNumber;
@@ -250,10 +285,19 @@ public class SupermanGameManager : GameManager
     [Header("Score")]
     [Tooltip("ScoreUI (TextMeshPro - Text (UI)). Can be left empty for now")]
     [SerializeField] private TMP_Text scoreUI;
+    [Tooltip("ScoreUI object (the whole panel). Made visible every time the scene loads, including Restart " +
+             "(the leaderboard hides it at Game Over). Empty = found by name \"ScoreUI\" (any case, hidden objects included)")]
+    [SerializeField] private GameObject scoreUIObject;
     [Tooltip("Text format, {0} = score. e.g. \"{0}\", \"Score: {0:N0}\"")]
     [SerializeField] private string scoreFormat = "{0}";
     [Tooltip("Score added per cleared question")]
     [SerializeField] private int scorePerClear = 200;
+
+    [Header("Records (saved on this computer with PlayerPrefs)")]
+    [Tooltip("Optional: TextMeshPro - Text (UI) that shows the local high score")]
+    [SerializeField] private TMP_Text highScoreUI;
+    [Tooltip("Text format, {0} = high score. e.g. \"BEST {0}\"")]
+    [SerializeField] private string highScoreFormat = "BEST {0}";
 
     [Header("Pop-up: Add Score (+200 / Fever +400)")]
     [SerializeField] private PopupSettings scorePopup = new PopupSettings();
@@ -285,6 +329,8 @@ public class SupermanGameManager : GameManager
     [SerializeField] private UnityEvent onFeverEnd = new UnityEvent();
     [SerializeField] private UnityEvent onMistake = new UnityEvent();
     [SerializeField] private UnityEvent onTimeUp = new UnityEvent();
+    [Tooltip("Called at Game Over when the score beats the local high score (passes the new high score)")]
+    [SerializeField] private IntEvent onNewHighScore = new IntEvent();
     [Tooltip("Called for each countdown step: 3, 2, 1, then 0 for GO (e.g. play a sound)")]
     [SerializeField] private IntEvent onCountdownStep = new IntEvent();
 
@@ -309,7 +355,50 @@ public class SupermanGameManager : GameManager
     public int Score { get; private set; }
     public int Streak => streak;
     public bool IsFever { get; private set; }
+    /// <summary>Questions completed this run</summary>
     public int TotalClears { get; private set; }
+    /// <summary>Longest COMBO this run (most clears in a row without a mistake)</summary>
+    public int MaxCombo { get; private set; }
+    /// <summary>Mistakes made this run</summary>
+    public int Mistakes { get; private set; }
+    /// <summary>True after Game Over if this run set a new local high score</summary>
+    public bool IsNewHighScore { get; private set; }
+
+    // ---------- Saved records (readable from any scene, e.g. a leaderboard) ----------
+    public const string KeyHighScore = "Superman_HighScore";
+    public const string KeyHighScoreClears = "Superman_HighScore_Clears";
+    public const string KeyHighScoreMaxCombo = "Superman_HighScore_MaxCombo";
+    public const string KeyHighScoreMistakes = "Superman_HighScore_Mistakes";
+    public const string KeyLastScore = "Superman_Last_Score";
+    public const string KeyLastClears = "Superman_Last_Clears";
+    public const string KeyLastMaxCombo = "Superman_Last_MaxCombo";
+    public const string KeyLastMistakes = "Superman_Last_Mistakes";
+
+    /// <summary>Local high score, and the stats of that run</summary>
+    public static int HighScore => PlayerPrefs.GetInt(KeyHighScore, 0);
+    public static int HighScoreClears => PlayerPrefs.GetInt(KeyHighScoreClears, 0);
+    public static int HighScoreMaxCombo => PlayerPrefs.GetInt(KeyHighScoreMaxCombo, 0);
+    public static int HighScoreMistakes => PlayerPrefs.GetInt(KeyHighScoreMistakes, 0);
+
+    /// <summary>Stats of the most recent finished run (saved at Game Over)</summary>
+    public static int LastScore => PlayerPrefs.GetInt(KeyLastScore, 0);
+    public static int LastClears => PlayerPrefs.GetInt(KeyLastClears, 0);
+    public static int LastMaxCombo => PlayerPrefs.GetInt(KeyLastMaxCombo, 0);
+    public static int LastMistakes => PlayerPrefs.GetInt(KeyLastMistakes, 0);
+
+    /// <summary>Deletes the local high score (and its stats) and the last run's stats.</summary>
+    public static void ResetRecords()
+    {
+        PlayerPrefs.DeleteKey(KeyHighScore);
+        PlayerPrefs.DeleteKey(KeyHighScoreClears);
+        PlayerPrefs.DeleteKey(KeyHighScoreMaxCombo);
+        PlayerPrefs.DeleteKey(KeyHighScoreMistakes);
+        PlayerPrefs.DeleteKey(KeyLastScore);
+        PlayerPrefs.DeleteKey(KeyLastClears);
+        PlayerPrefs.DeleteKey(KeyLastMaxCombo);
+        PlayerPrefs.DeleteKey(KeyLastMistakes);
+        PlayerPrefs.Save();
+    }
     /// <summary>How many times the global difficulty has gone up</summary>
     public int DifficultyLevel { get; private set; }
     public int CurrentLevelIndex => currentLevel;
@@ -336,6 +425,13 @@ public class SupermanGameManager : GameManager
     private UniversalAdditionalCameraData introCamData;
     private bool savedPostProcessing;
     private bool introReady;
+    private bool leaving;   // restart / home pressed
+
+    // Set by the restart button: the next load of this scene skips the zoom-out
+    private static bool skipIntroOnce;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics() => skipIntroOnce = false;
 
     // ============================================================
     //  Lifecycle
@@ -436,6 +532,23 @@ public class SupermanGameManager : GameManager
 
         if (countdownNumber != null) countdownNumber.gameObject.SetActive(false);
 
+        // ScoreUI: hidden by the leaderboard at Game Over, so make sure it is visible again on every load
+        if (scoreUIObject == null) scoreUIObject = FindInSceneIgnoreCase("ScoreUI");
+        if (scoreUIObject == null && scoreUI != null) scoreUIObject = scoreUI.gameObject;
+        if (scoreUIObject != null)
+        {
+            if (!scoreUIObject.activeSelf) scoreUIObject.SetActive(true);
+        }
+        else Debug.LogWarning("[SupermanGameManager] \"ScoreUI\" not found.", this);
+
+        // Restart / Home buttons (they are usually inside a hidden panel, so hidden objects are searched too)
+        if (restartButton == null) restartButton = FindInScene<Button>("restartButton");
+        if (homeButton == null) homeButton = FindInScene<Button>("homeButton");
+        if (restartButton != null) restartButton.onClick.AddListener(RestartGame);
+        else Debug.LogWarning("[SupermanGameManager] \"restartButton\" not found.", this);
+        if (homeButton != null) homeButton.onClick.AddListener(GoHome);
+        else Debug.LogWarning("[SupermanGameManager] \"homeButton\" not found.", this);
+
         // Apply the zoom-out start look right away, so the first frame is already zoomed in
         SetupIntro();
 
@@ -447,6 +560,7 @@ public class SupermanGameManager : GameManager
 
         SetupPlayerAnimator();
         UpdateScoreUI();
+        UpdateHighScoreUI();
     }
 
     private void Start()
@@ -471,7 +585,28 @@ public class SupermanGameManager : GameManager
     {
         if (!playIntroZoom) return;
 
+        // Restart button: reload without the zoom-out (the countdown still plays)
+        if (skipIntroOnce)
+        {
+            skipIntroOnce = false;
+            return;
+        }
+
+        PrepareZoom(introFocus, introFocusTarget, introFocusOffset, introFisheye, introZoomCanvas);
+        introReady = true;
+        ApplyIntroPose(0f);
+    }
+
+    /// <summary>
+    /// Captures the camera / Canvas in their normal state and sets up the fisheye and the UI ZoomRoot,
+    /// anchored on the given focus point. Used by the intro zoom-out and the Home zoom-in.
+    /// </summary>
+    private void PrepareZoom(IntroFocus focus, Transform focusTarget, Vector2 focusOffset, bool useFisheye, bool zoomCanvas)
+    {
         introCam = worldCamera != null ? worldCamera : Camera.main;
+        introCamShift = Vector3.zero;
+        introFocusViewport = new Vector2(0.5f, 0.5f);
+
         if (introCam != null)
         {
             camInitSize = introCam.orthographicSize;
@@ -479,7 +614,7 @@ public class SupermanGameManager : GameManager
             camInitPos = introCam.transform.position;
 
             // Focus point: where on screen the zoom is anchored (it stays at the same screen spot)
-            if (TryGetIntroFocusWorld(out Vector3 focusWorld))
+            if (TryGetFocusWorld(focus, focusTarget, focusOffset, out Vector3 focusWorld))
             {
                 Vector3 vp = introCam.WorldToViewportPoint(focusWorld);
                 introFocusViewport = new Vector2(Mathf.Clamp01(vp.x), Mathf.Clamp01(vp.y));
@@ -493,7 +628,8 @@ public class SupermanGameManager : GameManager
         introCanvas = c != null ? c.rootCanvas : null;
 
         // Fisheye setup (before the Canvas zoom, because it may change the Canvas render mode)
-        if (introFisheye && introCam != null)
+        lensDistortion = null;
+        if (useFisheye && introCam != null)
         {
             lensDistortion = GetLensDistortion();
             if (lensDistortion != null)
@@ -503,6 +639,8 @@ public class SupermanGameManager : GameManager
                 lensDistortion.scale.overrideState = true;
                 lensDistortion.center.overrideState = true;
                 lensDistortion.center.value = introFocusViewport;   // fisheye bulges from the focus point
+                lensDistortion.intensity.value = 0f;
+                lensDistortion.scale.value = 1f;
 
                 introCamData = introCam.GetUniversalAdditionalCameraData();
                 if (introCamData != null)
@@ -515,8 +653,9 @@ public class SupermanGameManager : GameManager
             }
         }
 
-        // Canvas zoom setup
-        if (introZoomCanvas && introCanvas != null && introCanvas.renderMode != RenderMode.WorldSpace)
+        // Canvas zoom setup (the ZoomRoot is created once and reused)
+        introZoomRoot = null;
+        if (zoomCanvas && introCanvas != null && introCanvas.renderMode != RenderMode.WorldSpace)
         {
             introZoomRoot = introZoomCanvasRoot != null ? introZoomCanvasRoot : WrapCanvasInZoomRoot(introCanvas);
             if (introZoomRoot != null)
@@ -525,18 +664,14 @@ public class SupermanGameManager : GameManager
                 zoomRootBasePos = introZoomRoot.localPosition;
             }
         }
-
-        introReady = true;
-        ApplyIntroPose(0f);
     }
 
-    /// <summary>t = 0: start look (zoomed in + fisheye), t = 1: normal.</summary>
-    private void ApplyIntroPose(float t)
+    /// <summary>z = zoom (1 = normal, 2 = twice as close), plus the fisheye values.</summary>
+    private void ApplyZoom(float z, bool zoomCamera, float fisheyeIntensity, float fisheyeScale)
     {
-        float zEase = MenuManager.Ease(introZoomEase, Mathf.Clamp01(t), introZoomCurve);
-        float z = Mathf.Max(0.01f, Mathf.LerpUnclamped(Mathf.Max(0.01f, introZoomAmount), 1f, zEase));
+        z = Mathf.Max(0.01f, z);
 
-        if (introZoomCamera && introCam != null)
+        if (zoomCamera && introCam != null)
         {
             introCam.transform.position = camInitPos + introCamShift * (1f - 1f / z);
             if (introCam.orthographic) introCam.orthographicSize = camInitSize / z;
@@ -555,10 +690,21 @@ public class SupermanGameManager : GameManager
 
         if (lensDistortion != null)
         {
-            float f = MenuManager.Ease(introFisheyeEase, Mathf.Clamp01(t), introFisheyeCurve);
-            lensDistortion.intensity.value = Mathf.LerpUnclamped(introFisheyeIntensity, 0f, f);
-            lensDistortion.scale.value = Mathf.Max(0.01f, Mathf.LerpUnclamped(introFisheyeScale, 1f, f));
+            lensDistortion.intensity.value = fisheyeIntensity;
+            lensDistortion.scale.value = Mathf.Max(0.01f, fisheyeScale);
         }
+    }
+
+    /// <summary>t = 0: start look (zoomed in + fisheye), t = 1: normal.</summary>
+    private void ApplyIntroPose(float t)
+    {
+        t = Mathf.Clamp01(t);
+        float zEase = MenuManager.Ease(introZoomEase, t, introZoomCurve);
+        float z = Mathf.LerpUnclamped(Mathf.Max(0.01f, introZoomAmount), 1f, zEase);
+        float f = MenuManager.Ease(introFisheyeEase, t, introFisheyeCurve);
+        ApplyZoom(z, introZoomCamera,
+                  Mathf.LerpUnclamped(introFisheyeIntensity, 0f, f),
+                  Mathf.LerpUnclamped(introFisheyeScale, 1f, f));
     }
 
     private IEnumerator IntroZoomRoutine()
@@ -615,15 +761,15 @@ public class SupermanGameManager : GameManager
         }
     }
 
-    private bool TryGetIntroFocusWorld(out Vector3 world)
+    private bool TryGetFocusWorld(IntroFocus focus, Transform focusTarget, Vector2 focusOffset, out Vector3 world)
     {
         Transform t = null;
-        if (introFocus == IntroFocus.Player && playerObject != null) t = playerObject.transform;
-        else if (introFocus == IntroFocus.Target) t = introFocusTarget;
+        if (focus == IntroFocus.Player && playerObject != null) t = playerObject.transform;
+        else if (focus == IntroFocus.Target) t = focusTarget;
 
-        world = t != null ? t.position + (Vector3)introFocusOffset : Vector3.zero;
-        if (introFocus != IntroFocus.ScreenCenter && t == null)
-            Debug.LogWarning("[SupermanGameManager] Intro focus object is not assigned; zooming from the screen center.", this);
+        world = t != null ? t.position + (Vector3)focusOffset : Vector3.zero;
+        if (focus != IntroFocus.ScreenCenter && t == null)
+            Debug.LogWarning("[SupermanGameManager] Zoom focus object is not assigned; zooming on the screen center.", this);
         return t != null;
     }
 
@@ -732,6 +878,9 @@ public class SupermanGameManager : GameManager
 
         Score = 0;
         TotalClears = 0;
+        MaxCombo = 0;
+        Mistakes = 0;
+        IsNewHighScore = false;
         DifficultyLevel = 0;
         streak = 0;
         mistakeThisClear = false;
@@ -767,6 +916,7 @@ public class SupermanGameManager : GameManager
         if (!mistakeThisClear)
         {
             streak++;
+            if (streak > MaxCombo) MaxCombo = streak;
             if (!IsFever && feverStreakRequired > 0 && streak >= feverStreakRequired)
                 SetFever(true);
         }
@@ -796,6 +946,7 @@ public class SupermanGameManager : GameManager
         if (phase == Phase.Over || IsGameOver) return;
 
         mistakeThisClear = true;
+        Mistakes++;
         streak = 0;
         if (IsFever) SetFever(false);
 
@@ -827,7 +978,91 @@ public class SupermanGameManager : GameManager
 
         if (IsFever) SetFever(false);
         if (DebugMode && nextGameButton != null) nextGameButton.gameObject.SetActive(true);
+        SaveRecords();
         onTimeUp.Invoke();
+    }
+
+    /// <summary>restartButton: reloads this scene without the fisheye zoom-out.</summary>
+    public void RestartGame()
+    {
+        if (leaving) return;
+        leaving = true;
+        SetLeaveButtonsInteractable(false);
+
+        skipIntroOnce = true;
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(gameObject.scene.name);
+    }
+
+    /// <summary>homeButton: zooms in (Home Zoom-in settings), then MenuManager.CompleteCurrentLevelAndReturnWithFisheye().</summary>
+    public void GoHome()
+    {
+        if (leaving) return;
+        leaving = true;
+        SetLeaveButtonsInteractable(false);
+        StartCoroutine(HomeRoutine());
+    }
+
+    private IEnumerator HomeRoutine()
+    {
+        if (playHomeZoom)
+        {
+            PrepareZoom(homeFocus, homeFocusTarget, homeFocusOffset, homeFisheye, homeZoomCanvas);
+
+            float t = 0f;
+            float d = Mathf.Max(0f, homeZoomDuration);
+            while (true)
+            {
+                float p = d > 0f ? Mathf.Clamp01(t / d) : 1f;
+                float z = Mathf.LerpUnclamped(1f, Mathf.Max(0.01f, homeZoomAmount), MenuManager.Ease(homeZoomEase, p, homeZoomCurve));
+                float f = MenuManager.Ease(homeFisheyeEase, p, homeFisheyeCurve);
+                ApplyZoom(z, homeZoomCamera,
+                          Mathf.LerpUnclamped(0f, homeFisheyeIntensity, f),
+                          Mathf.LerpUnclamped(1f, homeFisheyeScale, f));
+
+                if (p >= 1f) break;
+                yield return null;
+                t += DeltaTime();
+            }
+        }
+
+        if (homeHoldTime > 0f) yield return Wait(homeHoldTime);
+
+        // Marks this level as cleared and goes back to the Menu (MenuManager handles the scene change)
+        Time.timeScale = 1f;
+        MenuManager.CompleteCurrentLevelAndReturnWithFisheye();
+    }
+
+    private void SetLeaveButtonsInteractable(bool value)
+    {
+        if (restartButton != null) restartButton.interactable = value;
+        if (homeButton != null) homeButton.interactable = value;
+    }
+
+    /// <summary>Finds a GameObject by name in this scene, ignoring upper / lower case (hidden objects included).</summary>
+    private GameObject FindInSceneIgnoreCase(string objName)
+    {
+        Scene scene = gameObject.scene;
+        if (!scene.IsValid()) return null;
+        foreach (GameObject root in scene.GetRootGameObjects())
+            foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
+                if (string.Equals(t.name, objName, StringComparison.OrdinalIgnoreCase)) return t.gameObject;
+        return null;
+    }
+
+    /// <summary>Finds a component by GameObject name in this scene (hidden objects included).</summary>
+    private T FindInScene<T>(string objName) where T : Component
+    {
+        Scene scene = gameObject.scene;
+        if (!scene.IsValid()) return null;
+        foreach (GameObject root in scene.GetRootGameObjects())
+            foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
+                if (t.name == objName)
+                {
+                    T c = t.GetComponent<T>();
+                    if (c != null) return c;
+                }
+        return null;
     }
 
     public void OnNextGameClicked()
@@ -1162,6 +1397,38 @@ public class SupermanGameManager : GameManager
         if (rt != null) Destroy(rt.gameObject);
     }
 
+    /// <summary>Saves this run's stats, and the high score if it was beaten.</summary>
+    private void SaveRecords()
+    {
+        PlayerPrefs.SetInt(KeyLastScore, Score);
+        PlayerPrefs.SetInt(KeyLastClears, TotalClears);
+        PlayerPrefs.SetInt(KeyLastMaxCombo, MaxCombo);
+        PlayerPrefs.SetInt(KeyLastMistakes, Mistakes);
+
+        IsNewHighScore = Score > HighScore;
+        if (IsNewHighScore)
+        {
+            PlayerPrefs.SetInt(KeyHighScore, Score);
+            PlayerPrefs.SetInt(KeyHighScoreClears, TotalClears);
+            PlayerPrefs.SetInt(KeyHighScoreMaxCombo, MaxCombo);
+            PlayerPrefs.SetInt(KeyHighScoreMistakes, Mistakes);
+        }
+        PlayerPrefs.Save();
+
+        Debug.Log($"[SupermanGameManager] Run: Score {Score}, Clears {TotalClears}, Max Combo {MaxCombo}, Mistakes {Mistakes}" +
+                  (IsNewHighScore ? "  -> NEW HIGH SCORE" : $"  (High Score {HighScore})"), this);
+
+        UpdateHighScoreUI();
+        if (IsNewHighScore) onNewHighScore.Invoke(Score);
+    }
+
+    private void UpdateHighScoreUI()
+    {
+        if (highScoreUI == null) return;
+        try { highScoreUI.text = string.Format(highScoreFormat, HighScore); }
+        catch (FormatException) { highScoreUI.text = HighScore.ToString(); }
+    }
+
     private void UpdateScoreUI()
     {
         if (scoreUI == null) return;
@@ -1365,6 +1632,26 @@ public class SupermanGameManagerEditor : Editor
         serializedObject.ApplyModifiedProperties();
 
         var gm = (SupermanGameManager)target;
+
+        // ---- Records (works in and out of Play Mode) ----
+        EditorGUILayout.Space(10);
+        EditorGUILayout.LabelField("Records (PlayerPrefs)", EditorStyles.boldLabel);
+        EditorGUILayout.HelpBox(
+            $"High Score: {SupermanGameManager.HighScore}   (Clears {SupermanGameManager.HighScoreClears}, " +
+            $"Max Combo {SupermanGameManager.HighScoreMaxCombo}, Mistakes {SupermanGameManager.HighScoreMistakes})\n" +
+            $"Last Run: Score {SupermanGameManager.LastScore}, Clears {SupermanGameManager.LastClears}, " +
+            $"Max Combo {SupermanGameManager.LastMaxCombo}, Mistakes {SupermanGameManager.LastMistakes}" +
+            (Application.isPlaying ? $"\nThis Run: Score {gm.Score}, Clears {gm.TotalClears}, Max Combo {gm.MaxCombo}, Mistakes {gm.Mistakes}" : ""),
+            MessageType.Info);
+        if (GUILayout.Button("Reset High Score & Records"))
+        {
+            if (EditorUtility.DisplayDialog("Reset Records",
+                "Delete the local high score and the last run's stats?", "Reset", "Cancel"))
+            {
+                SupermanGameManager.ResetRecords();
+                if (Application.isPlaying) gm.SendMessage("UpdateHighScoreUI", SendMessageOptions.DontRequireReceiver);
+            }
+        }
 
         EditorGUILayout.Space(10);
         EditorGUILayout.LabelField("Test Controls", EditorStyles.boldLabel);
