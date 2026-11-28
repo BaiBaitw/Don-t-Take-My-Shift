@@ -21,6 +21,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
@@ -221,6 +223,24 @@ public class MenuManager : MonoBehaviour
     public bool selectZoomCanvas = true;
     [Tooltip("UI object to scale for the Canvas zoom. Empty = everything in the root Canvas is wrapped in a 'ZoomRoot' automatically")]
     public RectTransform zoomCanvasRoot;
+
+    [Header("Level Select Zoom - Fisheye (URP Lens Distortion)")]
+    [Tooltip("Add a fisheye / wide-angle distortion during the select zoom when Superman is chosen")]
+    public bool fisheyeOnSuperman = true;
+    [Tooltip("Use the fisheye for every level, not only Superman")]
+    public bool fisheyeOnAllLevels = false;
+    [Tooltip("Distortion strength at the end of the zoom. Positive and negative bend the image in opposite directions (bulge vs. pinch): try both")]
+    [Range(-1f, 1f)] public float fisheyeIntensity = -0.6f;
+    [Tooltip("Lens Distortion 'Scale' at the end of the zoom (below 1 shrinks the image to hide stretched edges, above 1 crops in)")]
+    [Range(0.01f, 5f)] public float fisheyeScale = 1f;
+    [Tooltip("Speed curve of the distortion (uses the same timing as the zoom: selectZoomDuration)")]
+    public EaseType fisheyeEase = EaseType.InCubic;
+    [Tooltip("Used when fisheyeEase is Custom")]
+    public AnimationCurve fisheyeCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+    [Tooltip("Global Volume used for the effect (empty = one is created automatically)")]
+    public Volume fisheyeVolume;
+    [Tooltip("Post-processing can't distort a Screen Space - Overlay Canvas. If on, the Canvas is switched to Screen Space - Camera (drawn on top) when the fisheye starts, so the UI is distorted too")]
+    public bool fisheyeMoveCanvasToCamera = true;
     [Tooltip("Use time that ignores Time.timeScale")]
     public bool useUnscaledTime = true;
 
@@ -1385,7 +1405,7 @@ public class MenuManager : MonoBehaviour
         PlayerPrefs.SetInt(KeyLastLaunched, index);
         PlayerPrefs.Save();
         Play(confirmSfx);
-        if (enableSelectZoom) StartCoroutine(SelectZoomRoutine(index));
+        if (enableSelectZoom || UseFisheye(index)) StartCoroutine(SelectZoomRoutine(index));
         if (loadDelay > 0f) yield return new WaitForSecondsRealtime(loadDelay);
         Time.timeScale = 1f;
         SceneManager.LoadScene(scene);
@@ -1409,7 +1429,7 @@ public class MenuManager : MonoBehaviour
         // Camera setup
         Camera cam = introCamera != null ? introCamera : Camera.main;
         if (cameraRoutine != null) { StopCoroutine(cameraRoutine); cameraRoutine = null; }
-        bool doCam = selectZoomCamera && cam != null;
+        bool doCam = enableSelectZoom && selectZoomCamera && cam != null;
         Vector3 camStart = Vector3.zero, camShift = Vector3.zero;
         float camSize = 0f, camFov = 0f;
         if (doCam)
@@ -1424,10 +1444,34 @@ public class MenuManager : MonoBehaviour
             camShift = f - c; // camera moves toward the focus point as it zooms
         }
 
+        // Fisheye setup (before the Canvas setup, because it may change the Canvas render mode)
+        LensDistortion lens = null;
+        if (UseFisheye(index) && cam != null)
+        {
+            lens = GetLensDistortion();
+            if (lens != null)
+            {
+                lens.active = true;
+                lens.intensity.overrideState = true;
+                lens.scale.overrideState = true;
+                lens.center.overrideState = true;
+                lens.intensity.value = 0f;
+                lens.scale.value = 1f;
+                lens.center.value = new Vector2(
+                    Mathf.Clamp01(screenFocus.x / Mathf.Max(1, Screen.width)),
+                    Mathf.Clamp01(screenFocus.y / Mathf.Max(1, Screen.height)));
+
+                var camData = cam.GetUniversalAdditionalCameraData();
+                if (camData != null) camData.renderPostProcessing = true;
+
+                if (fisheyeMoveCanvasToCamera) MoveCanvasToCamera(cam);
+            }
+        }
+
         // Canvas setup
         RectTransform root = null;
         Vector3 rootStartPos = Vector3.zero, rootStartScale = Vector3.one, pivotLocal = Vector3.zero;
-        if (selectZoomCanvas)
+        if (enableSelectZoom && selectZoomCanvas)
         {
             Canvas rc = canvas != null ? canvas.rootCanvas : null;
             if (rc != null && rc.renderMode != RenderMode.WorldSpace)
@@ -1464,11 +1508,49 @@ public class MenuManager : MonoBehaviour
                 root.localScale = rootStartScale * z;
                 root.localPosition = pivotLocal + (rootStartPos - pivotLocal) * z;
             }
+            if (lens != null)
+            {
+                float f = Ease(fisheyeEase, p, fisheyeCurve);
+                lens.intensity.value = Mathf.LerpUnclamped(0f, fisheyeIntensity, f);
+                lens.scale.value = Mathf.Max(0.01f, Mathf.LerpUnclamped(1f, fisheyeScale, f));
+            }
 
             if (p >= 1f) break;
             yield return null;
             t += Time.unscaledDeltaTime;
         }
+    }
+
+    bool UseFisheye(int index) => fisheyeOnAllLevels || (fisheyeOnSuperman && index == supermanIndex);
+
+    LensDistortion GetLensDistortion()
+    {
+        if (fisheyeVolume == null)
+        {
+            var go = new GameObject("FisheyeVolume");
+            go.layer = 0; // Default layer (included in the camera's Volume Mask by default)
+            fisheyeVolume = go.AddComponent<Volume>();
+            fisheyeVolume.isGlobal = true;
+            fisheyeVolume.priority = 100f;
+            fisheyeVolume.sharedProfile = ScriptableObject.CreateInstance<VolumeProfile>();
+        }
+        fisheyeVolume.weight = 1f;
+        VolumeProfile profile = fisheyeVolume.profile; // runtime copy, so a profile asset is never modified
+        if (!profile.TryGet(out LensDistortion lens)) lens = profile.Add<LensDistortion>(false);
+        return lens;
+    }
+
+    // Post-processing only affects what the camera renders, so an Overlay Canvas is moved onto the camera
+    void MoveCanvasToCamera(Camera cam)
+    {
+        Canvas rc = canvas != null ? canvas.rootCanvas : null;
+        if (rc == null || rc.renderMode != RenderMode.ScreenSpaceOverlay) return;
+        rc.renderMode = RenderMode.ScreenSpaceCamera;
+        rc.worldCamera = cam;
+        rc.planeDistance = cam.nearClipPlane + 0.5f; // in front of the scene
+        var layers = SortingLayer.layers;
+        if (layers.Length > 0) rc.sortingLayerID = layers[layers.Length - 1].id; // top-most sorting layer
+        rc.sortingOrder = 32767; // drawn on top of sprites (2D renderer sorts by layer / order)
     }
 
     // Moves every child of the root Canvas under one full-screen "ZoomRoot" so the whole UI can be scaled together

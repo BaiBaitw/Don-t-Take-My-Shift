@@ -501,6 +501,37 @@ MonoBehaviour:
   selectZoomCamera: 1
   selectZoomCanvas: 1
   zoomCanvasRoot: {fileID: 167285157}
+  fisheyeOnSuperman: 1
+  fisheyeOnAllLevels: 0
+  fisheyeIntensity: -0.84
+  fisheyeScale: 1
+  fisheyeEase: 10
+  fisheyeCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  fisheyeVolume: {fileID: 0}
+  fisheyeMoveCanvasToCamera: 1
   useUnscaledTime: 1
   audioSource: {fileID: 0}
   slideSfx: {fileID: 0}

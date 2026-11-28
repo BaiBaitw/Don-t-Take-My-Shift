@@ -5,6 +5,8 @@ using System.Reflection;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 #if UNITY_EDITOR
@@ -15,6 +17,10 @@ using UnityEditor;
 /// Superman mode: all six mini games live in one scene.
 ///
 /// Flow:
+///  -1. On scene load: fisheye zoom-out intro (URP Lens Distortion on a Volume; affects the scene
+///      and any Canvas set to Screen Space - Camera).
+///   0. Debug Mode OFF (default): a 3-2-1-GO countdown plays on countdownNumber, then the game starts.
+///      Debug Mode ON: StartGameButton / NextGameButton are shown instead (for testing).
 ///   1. Press StartGameButton -> a random level slides in and its StartGame() is called.
 ///   2. When the level calls CompleteCurrentStage(), score is added (with Fever multiplier),
 ///      then a new random level is picked:
@@ -67,6 +73,53 @@ public class SupermanGameManager : GameManager
     }
 
     public enum SlideFrom { Right, Left, Random }
+    public enum IntroFocus { Player, Target, ScreenCenter }
+
+    /// <summary>Settings for a pop-up (e.g. "+200", "+2s") that jumps up, stays, fades out and is destroyed.</summary>
+    [Serializable]
+    public class PopupSettings
+    {
+        [Tooltip("Prefab to spawn (a UI object for the Canvas). A scene object can also be used as a template; it is hidden at start")]
+        public GameObject prefab;
+        [Tooltip("Where it appears, e.g. ScoreUI or the countdown bar. Empty = the prefab's own position under Spawn Parent")]
+        public RectTransform spawnAt;
+        [Tooltip("Parent it is created under. Empty = Spawn At's parent, or the root Canvas")]
+        public RectTransform spawnParent;
+        [Tooltip("Offset from the spawn position (UI units)")]
+        public Vector2 spawnOffset = Vector2.zero;
+        [Tooltip("Random extra offset (+/- this much), so several pop-ups don't sit exactly on top of each other")]
+        public Vector2 randomOffset = new Vector2(15f, 0f);
+        [Tooltip("Text format, {0} = the value. e.g. \"+{0}\", \"+{0}s\". Empty = keep the prefab's text")]
+        public string textFormat = "+{0}";
+
+        [Header("Pop In (scale)")]
+        [Tooltip("Scale when it appears (1 = the prefab's normal size)")]
+        public float startScale = 0.3f;
+        [Tooltip("Seconds to grow to normal size")]
+        public float scaleInDuration = 0.25f;
+        [Tooltip("OutBack / OutElastic / OutBounce give a bouncy pop")]
+        public MenuManager.EaseType scaleInEase = MenuManager.EaseType.OutBack;
+        [Tooltip("Used when Scale In Ease is Custom")]
+        public AnimationCurve scaleInCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+
+        [Header("Jump Up (position)")]
+        [Tooltip("How far it jumps up (UI units)")]
+        public float jumpHeight = 80f;
+        [Tooltip("Seconds of the jump (speed)")]
+        public float jumpDuration = 0.45f;
+        [Tooltip("OutBack = overshoots and settles, OutBounce = bounces at the top, OutElastic = springy, OutCubic = smooth")]
+        public MenuManager.EaseType jumpEase = MenuManager.EaseType.OutBack;
+        [Tooltip("Used when Jump Ease is Custom")]
+        public AnimationCurve jumpCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+
+        [Header("Show / Fade Out")]
+        [Tooltip("Seconds it stays fully visible after the jump")]
+        public float showTime = 0.4f;
+        [Tooltip("Seconds to fade out (then it is destroyed)")]
+        public float fadeDuration = 0.4f;
+        [Tooltip("Extra distance it drifts up while fading (UI units)")]
+        public float fadeDrift = 20f;
+    }
 
     [Serializable] public class IntEvent : UnityEvent<int> { }
 
@@ -94,8 +147,9 @@ public class SupermanGameManager : GameManager
     [Header("Flow")]
     [Tooltip("On: a random level is already shown on screen before the game starts (no input), and the game begins on that level without sliding.\nOff: the screen is empty and the first level slides in after Start is pressed.")]
     [SerializeField] private bool showPreviewOnLoad = true;
+    [Tooltip("Only shown in Debug Mode (Debug Settings at the top). Starts the game")]
     [SerializeField] private Button startGameButton;
-    [Tooltip("Shown after time is up. Loads Next Scene Name (empty = reload this scene)")]
+    [Tooltip("Only shown in Debug Mode, after time is up. Loads Next Scene Name (empty = reload this scene)")]
     [SerializeField] private Button nextGameButton;
     [SerializeField] private string nextSceneName = "";
     [Tooltip("GameObject with the CountdownBar script (receives StartTimer)")]
@@ -111,6 +165,88 @@ public class SupermanGameManager : GameManager
     [Tooltip("Every N clears in total (all levels added together), ALL six levels get IncreaseDifficulty() once (0 = never)")]
     [SerializeField] private int increaseDifficultyEvery = 2;
 
+    [Header("Intro Zoom-out (on scene load, before the countdown) - same method as MenuManager")]
+    [Tooltip("Play the zoom-out (+ fisheye) when the scene loads")]
+    [SerializeField] private bool playIntroZoom = true;
+    [Tooltip("Seconds the start look is held before it begins to go back to normal")]
+    [SerializeField] private float introHoldTime = 0.2f;
+    [Tooltip("Seconds to go back to normal")]
+    [SerializeField] private float introDuration = 1.2f;
+
+    [Header("Intro Zoom-out - Focus (where the zoom-out starts from)")]
+    [Tooltip("Player = zoom out from Player Object, Target = from Intro Focus Target, ScreenCenter = from the middle of the screen")]
+    [SerializeField] private IntroFocus introFocus = IntroFocus.Player;
+    [Tooltip("Used when Intro Focus is Target (e.g. the character's head)")]
+    [SerializeField] private Transform introFocusTarget;
+    [Tooltip("Offset added to the focus point (world units), e.g. (0, 1) = a bit above the character's feet. See the yellow gizmo")]
+    [SerializeField] private Vector2 introFocusOffset = Vector2.zero;
+    [Tooltip("Show the start frame of the zoom-out in the Scene view")]
+    [SerializeField] private bool showIntroGizmo = true;
+
+    [Header("Intro Zoom-out - Zoom")]
+    [Tooltip("Zoom at the start (2 = twice as close). Same value as MenuManager's Select Zoom Amount makes the menu -> Superman change seamless")]
+    [SerializeField] private float introZoomAmount = 2f;
+    [Tooltip("Zoom the camera (scene / world objects)")]
+    [SerializeField] private bool introZoomCamera = true;
+    [Tooltip("Zoom the Canvas (UI). Skipped for World Space canvases")]
+    [SerializeField] private bool introZoomCanvas = true;
+    [Tooltip("UI object to scale for the Canvas zoom. Empty = everything in the root Canvas is wrapped in a 'ZoomRoot' automatically")]
+    [SerializeField] private RectTransform introZoomCanvasRoot;
+    [SerializeField] private MenuManager.EaseType introZoomEase = MenuManager.EaseType.OutCubic;
+    [Tooltip("Used when Intro Zoom Ease is Custom")]
+    [SerializeField] private AnimationCurve introZoomCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+
+    [Header("Intro Zoom-out - Fisheye (URP Lens Distortion)")]
+    [Tooltip("Add a fisheye / wide-angle distortion that goes back to normal together with the zoom")]
+    [SerializeField] private bool introFisheye = true;
+    [Tooltip("Distortion at the start. Same value as MenuManager's Fisheye Intensity makes the change seamless. Positive and negative bend in opposite directions: try both")]
+    [Range(-1f, 1f)][SerializeField] private float introFisheyeIntensity = -0.6f;
+    [Tooltip("Lens Distortion 'Scale' at the start (below 1 shrinks the image to hide stretched edges, above 1 crops in)")]
+    [Range(0.01f, 5f)][SerializeField] private float introFisheyeScale = 1f;
+    [SerializeField] private MenuManager.EaseType introFisheyeEase = MenuManager.EaseType.OutCubic;
+    [Tooltip("Used when Intro Fisheye Ease is Custom")]
+    [SerializeField] private AnimationCurve introFisheyeCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+    [Tooltip("Global Volume used for the effect (empty = one is created automatically)")]
+    [SerializeField] private Volume introVolume;
+    [Tooltip("Post-processing can't distort a Screen Space - Overlay Canvas. If on, the Canvas is switched to Screen Space - Camera (drawn on top) during the intro, so the UI is distorted too")]
+    [SerializeField] private bool introMoveCanvasToCamera = true;
+    [Tooltip("After the intro, put the Canvas back to how it was (e.g. Screen Space - Overlay)")]
+    [SerializeField] private bool introRestoreCanvas = true;
+
+    [Header("Start Countdown (when Debug Mode is OFF)")]
+    [Tooltip("TextMeshPro - Text (UI) under the Canvas. Shows 3, 2, 1, GO, then is hidden")]
+    [SerializeField] private TMP_Text countdownNumber;
+    [Tooltip("Counts down from this number (3 = 3, 2, 1, GO)")]
+    [SerializeField] private int countdownFrom = 3;
+    [Tooltip("Seconds to wait after the scene loads before the first number")]
+    [SerializeField] private float countdownStartDelay = 0.3f;
+    [Tooltip("Seconds each number (3, 2, 1) stays on screen. This sets the countdown speed")]
+    [SerializeField] private float numberDuration = 0.8f;
+    [Tooltip("Number scale when it appears")]
+    [SerializeField] private float numberStartScale = 1.5f;
+    [Tooltip("Number scale at the end of its time (smaller = shrinks more)")]
+    [SerializeField] private float numberEndScale = 0.6f;
+    [Tooltip("How the number shrinks over its time (0 = start scale, 1 = end scale)")]
+    [SerializeField] private AnimationCurve numberScaleCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+    [Tooltip("Text shown after the last number")]
+    [SerializeField] private string goText = "GO";
+    [Tooltip("Seconds GO stays on screen before the game starts")]
+    [SerializeField] private float goDuration = 0.8f;
+    [Tooltip("GO scale when it appears")]
+    [SerializeField] private float goStartScale = 0.6f;
+    [Tooltip("GO scale at the end (bigger = grows more)")]
+    [SerializeField] private float goEndScale = 1.8f;
+    [Tooltip("How GO grows over its time (0 = start scale, 1 = end scale). Values above 1 overshoot")]
+    [SerializeField]
+    private AnimationCurve goScaleCurve = new AnimationCurve(
+        new Keyframe(0f, 0f, 0f, 4f), new Keyframe(0.35f, 1.15f), new Keyframe(1f, 1f));
+    [Tooltip("GO shake strength in UI units (0 = no shake)")]
+    [SerializeField] private float goShakeStrength = 20f;
+    [Tooltip("How many times per second GO jumps to a new shake position")]
+    [SerializeField] private float goShakeFrequency = 30f;
+    [Tooltip("Shake gets weaker towards the end of GO")]
+    [SerializeField] private bool goShakeFadeOut = true;
+
     [Header("Score")]
     [Tooltip("ScoreUI (TextMeshPro - Text (UI)). Can be left empty for now")]
     [SerializeField] private TMP_Text scoreUI;
@@ -118,6 +254,18 @@ public class SupermanGameManager : GameManager
     [SerializeField] private string scoreFormat = "{0}";
     [Tooltip("Score added per cleared question")]
     [SerializeField] private int scorePerClear = 200;
+
+    [Header("Pop-up: Add Score (+200 / Fever +400)")]
+    [SerializeField] private PopupSettings scorePopup = new PopupSettings();
+    [Tooltip("Change the text colour of the score pop-up during Fever")]
+    [SerializeField] private bool scorePopupFeverColor = true;
+    [SerializeField] private Color scorePopupFeverTextColor = new Color(1f, 0.75f, 0.1f, 1f);
+    [Tooltip("Extra size of the score pop-up during Fever (1 = same size)")]
+    [SerializeField] private float scorePopupFeverScale = 1.25f;
+
+    [Header("Pop-up: Add Time (when CountdownBar.AddBonusTime() adds time)")]
+    [Tooltip("The prefab's text is never changed (Text Format is ignored here)")]
+    [SerializeField] private PopupSettings timePopup = new PopupSettings { textFormat = "" };
 
     [Header("Fever")]
     [Tooltip("Clears in a row with no mistake needed to start Fever")]
@@ -137,6 +285,8 @@ public class SupermanGameManager : GameManager
     [SerializeField] private UnityEvent onFeverEnd = new UnityEvent();
     [SerializeField] private UnityEvent onMistake = new UnityEvent();
     [SerializeField] private UnityEvent onTimeUp = new UnityEvent();
+    [Tooltip("Called for each countdown step: 3, 2, 1, then 0 for GO (e.g. play a sound)")]
+    [SerializeField] private IntEvent onCountdownStep = new IntEvent();
 
     // ============================================================
     //  Runtime state
@@ -164,6 +314,28 @@ public class SupermanGameManager : GameManager
     public int DifficultyLevel { get; private set; }
     public int CurrentLevelIndex => currentLevel;
     public bool IsSliding { get; private set; }
+    public bool IsCountingDown { get; private set; }
+    public bool IsPlayingIntro { get; private set; }
+
+    // Intro zoom-out runtime
+    private LensDistortion lensDistortion;
+    private Camera introCam;
+    private float camInitSize, camInitFov;
+    private Vector3 camInitPos;
+    private Vector3 introCamShift;                       // camera moves toward the focus point as it zooms
+    private Vector2 introFocusViewport = new Vector2(0.5f, 0.5f);   // focus point on screen (0..1)
+    private RectTransform introZoomRoot;
+    private Vector3 zoomRootBaseScale = Vector3.one;
+    private Vector3 zoomRootBasePos = Vector3.zero;
+    private Canvas introCanvas;
+    private bool canvasMoved;
+    private RenderMode savedRenderMode;
+    private Camera savedCanvasCamera;
+    private float savedPlaneDistance;
+    private int savedSortingLayerId, savedSortingOrder;
+    private UniversalAdditionalCameraData introCamData;
+    private bool savedPostProcessing;
+    private bool introReady;
 
     // ============================================================
     //  Lifecycle
@@ -188,6 +360,12 @@ public class SupermanGameManager : GameManager
             countdown = timeManager.GetComponent<CountdownBar>();
             if (countdown == null)
                 Debug.LogWarning("[SupermanGameManager] Time Manager has no CountdownBar; Fever time bonus will not work.", this);
+            else
+            {
+                // Spawn the AddTime pop-up whenever the bar's bonus time is actually added (by anyone)
+                if (countdown.onBonusTime == null) countdown.onBonusTime = new UnityEvent();
+                countdown.onBonusTime.AddListener(OnCountdownBonusTime);
+            }
         }
         if (shakeRootForPlayer != null)
         {
@@ -244,16 +422,295 @@ public class SupermanGameManager : GameManager
             currentLevel = previewLevel;
         }
 
-        if (startGameButton != null) startGameButton.onClick.AddListener(StartSuperman);
+        // Start / Next buttons are only shown in Debug Mode
+        if (startGameButton != null)
+        {
+            startGameButton.onClick.AddListener(StartSuperman);
+            startGameButton.gameObject.SetActive(DebugMode);
+        }
         if (nextGameButton != null)
         {
             nextGameButton.onClick.AddListener(OnNextGameClicked);
             nextGameButton.gameObject.SetActive(false);
         }
 
+        if (countdownNumber != null) countdownNumber.gameObject.SetActive(false);
+
+        // Apply the zoom-out start look right away, so the first frame is already zoomed in
+        SetupIntro();
+
         if (feverEffect != null) feverEffect.SetActive(false);
+
+        // Pop-up templates that are scene objects are only used for cloning
+        HideIfSceneTemplate(scorePopup.prefab);
+        HideIfSceneTemplate(timePopup.prefab);
+
         SetupPlayerAnimator();
         UpdateScoreUI();
+    }
+
+    private void Start()
+    {
+        StartCoroutine(IntroRoutine());
+    }
+
+    /// <summary>Fisheye zoom-out first, then (Debug Mode OFF) the 3-2-1-GO countdown.</summary>
+    private IEnumerator IntroRoutine()
+    {
+        if (introReady)
+            yield return IntroZoomRoutine();
+
+        // Debug Mode OFF: play 3-2-1-GO, then start the game automatically
+        if (!DebugMode) yield return CountdownRoutine();
+    }
+
+    // ============================================================
+    //  Intro zoom-out + fisheye (same method as MenuManager's select zoom, played in reverse)
+    // ============================================================
+    private void SetupIntro()
+    {
+        if (!playIntroZoom) return;
+
+        introCam = worldCamera != null ? worldCamera : Camera.main;
+        if (introCam != null)
+        {
+            camInitSize = introCam.orthographicSize;
+            camInitFov = introCam.fieldOfView;
+            camInitPos = introCam.transform.position;
+
+            // Focus point: where on screen the zoom is anchored (it stays at the same screen spot)
+            if (TryGetIntroFocusWorld(out Vector3 focusWorld))
+            {
+                Vector3 vp = introCam.WorldToViewportPoint(focusWorld);
+                introFocusViewport = new Vector2(Mathf.Clamp01(vp.x), Mathf.Clamp01(vp.y));
+                float depth = Mathf.Max(0.01f, Vector3.Dot(focusWorld - camInitPos, introCam.transform.forward));
+                Vector3 center = introCam.ViewportToWorldPoint(new Vector3(0.5f, 0.5f, depth));
+                introCamShift = focusWorld - center;
+            }
+        }
+
+        Canvas c = canvasRect != null ? canvasRect.GetComponentInParent<Canvas>() : null;
+        introCanvas = c != null ? c.rootCanvas : null;
+
+        // Fisheye setup (before the Canvas zoom, because it may change the Canvas render mode)
+        if (introFisheye && introCam != null)
+        {
+            lensDistortion = GetLensDistortion();
+            if (lensDistortion != null)
+            {
+                lensDistortion.active = true;
+                lensDistortion.intensity.overrideState = true;
+                lensDistortion.scale.overrideState = true;
+                lensDistortion.center.overrideState = true;
+                lensDistortion.center.value = introFocusViewport;   // fisheye bulges from the focus point
+
+                introCamData = introCam.GetUniversalAdditionalCameraData();
+                if (introCamData != null)
+                {
+                    savedPostProcessing = introCamData.renderPostProcessing;
+                    introCamData.renderPostProcessing = true;
+                }
+
+                if (introMoveCanvasToCamera) MoveCanvasToCamera(introCam);
+            }
+        }
+
+        // Canvas zoom setup
+        if (introZoomCanvas && introCanvas != null && introCanvas.renderMode != RenderMode.WorldSpace)
+        {
+            introZoomRoot = introZoomCanvasRoot != null ? introZoomCanvasRoot : WrapCanvasInZoomRoot(introCanvas);
+            if (introZoomRoot != null)
+            {
+                zoomRootBaseScale = introZoomRoot.localScale;
+                zoomRootBasePos = introZoomRoot.localPosition;
+            }
+        }
+
+        introReady = true;
+        ApplyIntroPose(0f);
+    }
+
+    /// <summary>t = 0: start look (zoomed in + fisheye), t = 1: normal.</summary>
+    private void ApplyIntroPose(float t)
+    {
+        float zEase = MenuManager.Ease(introZoomEase, Mathf.Clamp01(t), introZoomCurve);
+        float z = Mathf.Max(0.01f, Mathf.LerpUnclamped(Mathf.Max(0.01f, introZoomAmount), 1f, zEase));
+
+        if (introZoomCamera && introCam != null)
+        {
+            introCam.transform.position = camInitPos + introCamShift * (1f - 1f / z);
+            if (introCam.orthographic) introCam.orthographicSize = camInitSize / z;
+            else introCam.fieldOfView = camInitFov / z;
+        }
+
+        if (introZoomRoot != null)
+        {
+            // Scale the UI around the focus point's screen position (same spot as the camera zoom)
+            Vector2 size = canvasRect != null ? canvasRect.rect.size : new Vector2(Screen.width, Screen.height);
+            Vector3 pivot = new Vector3((introFocusViewport.x - 0.5f) * size.x, (introFocusViewport.y - 0.5f) * size.y, 0f);
+            introZoomRoot.localScale = zoomRootBaseScale * z;
+            pivot.z = zoomRootBasePos.z;
+            introZoomRoot.localPosition = pivot + (zoomRootBasePos - pivot) * z;
+        }
+
+        if (lensDistortion != null)
+        {
+            float f = MenuManager.Ease(introFisheyeEase, Mathf.Clamp01(t), introFisheyeCurve);
+            lensDistortion.intensity.value = Mathf.LerpUnclamped(introFisheyeIntensity, 0f, f);
+            lensDistortion.scale.value = Mathf.Max(0.01f, Mathf.LerpUnclamped(introFisheyeScale, 1f, f));
+        }
+    }
+
+    private IEnumerator IntroZoomRoutine()
+    {
+        IsPlayingIntro = true;
+        ApplyIntroPose(0f);
+
+        if (introHoldTime > 0f) yield return Wait(introHoldTime);
+
+        float t = 0f;
+        float d = Mathf.Max(0f, introDuration);
+        while (t < d)
+        {
+            ApplyIntroPose(t / d);
+            yield return null;
+            t += DeltaTime();
+        }
+        ApplyIntroPose(1f);
+        FinishIntro();
+        IsPlayingIntro = false;
+    }
+
+    /// <summary>Puts everything back exactly to normal after the intro.</summary>
+    private void FinishIntro()
+    {
+        if (introCam != null)
+        {
+            introCam.transform.position = camInitPos;
+            introCam.orthographicSize = camInitSize;
+            introCam.fieldOfView = camInitFov;
+        }
+        if (introZoomRoot != null)
+        {
+            introZoomRoot.localScale = zoomRootBaseScale;
+            introZoomRoot.localPosition = zoomRootBasePos;
+        }
+
+        if (lensDistortion != null)
+        {
+            lensDistortion.intensity.value = 0f;
+            lensDistortion.scale.value = 1f;
+            lensDistortion.active = false;
+        }
+        if (introCamData != null) introCamData.renderPostProcessing = savedPostProcessing;
+
+        if (introRestoreCanvas && canvasMoved && introCanvas != null)
+        {
+            introCanvas.renderMode = savedRenderMode;
+            introCanvas.worldCamera = savedCanvasCamera;
+            introCanvas.planeDistance = savedPlaneDistance;
+            introCanvas.sortingLayerID = savedSortingLayerId;
+            introCanvas.sortingOrder = savedSortingOrder;
+            canvasMoved = false;
+        }
+    }
+
+    private bool TryGetIntroFocusWorld(out Vector3 world)
+    {
+        Transform t = null;
+        if (introFocus == IntroFocus.Player && playerObject != null) t = playerObject.transform;
+        else if (introFocus == IntroFocus.Target) t = introFocusTarget;
+
+        world = t != null ? t.position + (Vector3)introFocusOffset : Vector3.zero;
+        if (introFocus != IntroFocus.ScreenCenter && t == null)
+            Debug.LogWarning("[SupermanGameManager] Intro focus object is not assigned; zooming from the screen center.", this);
+        return t != null;
+    }
+
+    // Yellow frame = what the camera sees at the start of the zoom-out (select this object to see it)
+    private void OnDrawGizmosSelected()
+    {
+        if (!showIntroGizmo || !playIntroZoom || !introZoomCamera) return;
+        Camera cam = worldCamera != null ? worldCamera : Camera.main;
+        if (cam == null || !cam.orthographic) return;
+
+        Vector3 camPos = Application.isPlaying && introReady ? camInitPos : cam.transform.position;
+        float size = Application.isPlaying && introReady ? camInitSize : cam.orthographicSize;
+        float z = Mathf.Max(0.01f, introZoomAmount);
+
+        Vector3 shift = Vector3.zero;
+        Transform t = introFocus == IntroFocus.Player && playerObject != null ? playerObject.transform
+                    : introFocus == IntroFocus.Target ? introFocusTarget : null;
+        if (t != null)
+        {
+            Vector3 focus = t.position + (Vector3)introFocusOffset;
+            shift = new Vector3(focus.x - camPos.x, focus.y - camPos.y, 0f);
+            Gizmos.color = new Color(1f, 0.85f, 0.1f);
+            Gizmos.DrawWireSphere(focus, size * 0.03f);
+        }
+
+        Vector3 c = camPos + shift * (1f - 1f / z);
+        float h = size / z, w = h * cam.aspect;
+        Gizmos.color = new Color(1f, 0.85f, 0.1f);
+        Gizmos.DrawWireCube(new Vector3(c.x, c.y, 0f), new Vector3(w * 2f, h * 2f, 0f));
+    }
+
+    private LensDistortion GetLensDistortion()
+    {
+        if (introVolume == null)
+        {
+            var go = new GameObject("IntroFisheyeVolume");
+            go.layer = 0; // Default layer (included in the camera's Volume Mask by default)
+            introVolume = go.AddComponent<Volume>();
+            introVolume.isGlobal = true;
+            introVolume.priority = 100f;
+            introVolume.sharedProfile = ScriptableObject.CreateInstance<VolumeProfile>();
+        }
+        introVolume.weight = 1f;
+        VolumeProfile profile = introVolume.profile; // runtime copy, so a profile asset is never modified
+        if (!profile.TryGet(out LensDistortion lens)) lens = profile.Add<LensDistortion>(false);
+        return lens;
+    }
+
+    // Post-processing only affects what the camera renders, so an Overlay Canvas is moved onto the camera
+    private void MoveCanvasToCamera(Camera cam)
+    {
+        if (introCanvas == null || introCanvas.renderMode != RenderMode.ScreenSpaceOverlay) return;
+
+        savedRenderMode = introCanvas.renderMode;
+        savedCanvasCamera = introCanvas.worldCamera;
+        savedPlaneDistance = introCanvas.planeDistance;
+        savedSortingLayerId = introCanvas.sortingLayerID;
+        savedSortingOrder = introCanvas.sortingOrder;
+        canvasMoved = true;
+
+        introCanvas.renderMode = RenderMode.ScreenSpaceCamera;
+        introCanvas.worldCamera = cam;
+        introCanvas.planeDistance = cam.nearClipPlane + 0.5f; // in front of the scene
+        var layers = SortingLayer.layers;
+        if (layers.Length > 0) introCanvas.sortingLayerID = layers[layers.Length - 1].id; // top-most sorting layer
+        introCanvas.sortingOrder = 32767; // drawn on top of sprites
+    }
+
+    // Moves every child of the root Canvas under one full-screen "ZoomRoot" so the whole UI can be scaled together
+    private RectTransform WrapCanvasInZoomRoot(Canvas rc)
+    {
+        Transform ct = rc.transform;
+        var go = new GameObject("ZoomRoot", typeof(RectTransform));
+        var rootRect = (RectTransform)go.transform;
+        rootRect.SetParent(ct, false);
+        rootRect.anchorMin = Vector2.zero;
+        rootRect.anchorMax = Vector2.one;
+        rootRect.pivot = new Vector2(0.5f, 0.5f);
+        rootRect.offsetMin = Vector2.zero;
+        rootRect.offsetMax = Vector2.zero;
+        go.layer = rc.gameObject.layer;
+
+        var children = new List<Transform>();
+        foreach (Transform child in ct) if (child != rootRect) children.Add(child);
+        foreach (var child in children) child.SetParent(rootRect, false); // same rect, so layout is unchanged
+        introZoomCanvasRoot = rootRect;
+        return rootRect;
     }
 
     private void Update()
@@ -369,7 +826,7 @@ public class SupermanGameManager : GameManager
             playerObject.SendMessage("GameOver", SendMessageOptions.DontRequireReceiver);
 
         if (IsFever) SetFever(false);
-        if (nextGameButton != null) nextGameButton.gameObject.SetActive(true);
+        if (DebugMode && nextGameButton != null) nextGameButton.gameObject.SetActive(true);
         onTimeUp.Invoke();
     }
 
@@ -382,6 +839,84 @@ public class SupermanGameManager : GameManager
     // ============================================================
     //  Flow
     // ============================================================
+    /// <summary>
+    /// 3, 2, 1: each number appears at Number Start Scale and shrinks to Number End Scale.
+    /// GO: grows from GO Start Scale to GO End Scale while shaking. Then the text is hidden
+    /// and StartSuperman() is called. Speed is set by Number Duration / GO Duration (not real seconds of a clock).
+    /// </summary>
+    private IEnumerator CountdownRoutine()
+    {
+        IsCountingDown = true;
+
+        if (countdownStartDelay > 0f) yield return Wait(countdownStartDelay);
+
+        if (countdownNumber == null)
+        {
+            Debug.LogWarning("[SupermanGameManager] Countdown Number is not assigned; starting the game without a countdown.", this);
+            IsCountingDown = false;
+            StartSuperman();
+            yield break;
+        }
+
+        RectTransform rt = countdownNumber.rectTransform;
+        Vector3 baseScale = rt.localScale;
+        Vector2 basePos = rt.anchoredPosition;
+        countdownNumber.gameObject.SetActive(true);
+
+        // 3, 2, 1 (shrink)
+        for (int n = Mathf.Max(0, countdownFrom); n >= 1; n--)
+        {
+            countdownNumber.text = n.ToString();
+            onCountdownStep.Invoke(n);
+
+            float t = 0f;
+            float d = Mathf.Max(0.01f, numberDuration);
+            while (t < d)
+            {
+                float k = numberScaleCurve.Evaluate(Mathf.Clamp01(t / d));
+                rt.localScale = baseScale * Mathf.LerpUnclamped(numberStartScale, numberEndScale, k);
+                yield return null;
+                t += DeltaTime();
+            }
+        }
+
+        // GO (grow + shake)
+        countdownNumber.text = goText;
+        onCountdownStep.Invoke(0);
+        {
+            float t = 0f;
+            float d = Mathf.Max(0.01f, goDuration);
+            float nextShake = 0f;
+            Vector2 offset = Vector2.zero;
+            while (t < d)
+            {
+                float p = Mathf.Clamp01(t / d);
+                rt.localScale = baseScale * Mathf.LerpUnclamped(goStartScale, goEndScale, goScaleCurve.Evaluate(p));
+
+                if (goShakeStrength > 0f && t >= nextShake)
+                {
+                    float strength = goShakeStrength * (goShakeFadeOut ? 1f - p : 1f);
+                    offset = UnityEngine.Random.insideUnitCircle * strength;
+                    nextShake = t + 1f / Mathf.Max(1f, goShakeFrequency);
+                }
+                rt.anchoredPosition = basePos + offset;
+
+                yield return null;
+                t += DeltaTime();
+            }
+        }
+
+        // Restore and hide, then start
+        rt.localScale = baseScale;
+        rt.anchoredPosition = basePos;
+        countdownNumber.gameObject.SetActive(false);
+
+        IsCountingDown = false;
+        StartSuperman();
+    }
+
+    private float DeltaTime() => useUnscaledTime ? Time.unscaledDeltaTime : Time.deltaTime;
+
     private IEnumerator FirstLevelRoutine()
     {
         if (previewLevel >= 0 && currentLevel == previewLevel)
@@ -522,6 +1057,109 @@ public class SupermanGameManager : GameManager
         Score += amount;
         UpdateScoreUI();
         onScoreChanged.Invoke(Score);
+
+        // "+200" (or "+400" during Fever)
+        GameObject pop = SpawnPopup(scorePopup, amount.ToString(), IsFever ? scorePopupFeverScale : 1f);
+        if (pop != null && IsFever && scorePopupFeverColor)
+        {
+            TMP_Text txt = pop.GetComponentInChildren<TMP_Text>(true);
+            if (txt != null) txt.color = scorePopupFeverTextColor;
+        }
+    }
+
+    private void OnCountdownBonusTime()
+    {
+        SpawnPopup(timePopup, null, 1f);   // null = keep the prefab's own text
+    }
+
+    // ============================================================
+    //  Pop-ups (AddScore / AddTime)
+    // ============================================================
+    private static void HideIfSceneTemplate(GameObject obj)
+    {
+        if (obj != null && obj.scene.IsValid()) obj.SetActive(false);
+    }
+
+    /// <summary>Creates a pop-up, sets its text (value null = text untouched) and plays: pop in + jump up -> show -> fade out -> destroy.</summary>
+    private GameObject SpawnPopup(PopupSettings p, string value, float sizeMultiplier)
+    {
+        if (p == null || p.prefab == null) return null;
+
+        Transform parent = p.spawnParent != null ? p.spawnParent
+                         : p.spawnAt != null ? p.spawnAt.parent
+                         : canvasRect;
+        if (parent == null) return null;
+
+        GameObject go = Instantiate(p.prefab, parent, false);
+        go.SetActive(true);
+        go.transform.SetAsLastSibling();   // drawn on top
+
+        RectTransform rt = go.transform as RectTransform;
+        if (rt == null)
+        {
+            Debug.LogWarning("[SupermanGameManager] Pop-up prefab must be a UI object (RectTransform).", p.prefab);
+            Destroy(go);
+            return null;
+        }
+
+        if (p.spawnAt != null) rt.position = p.spawnAt.position;
+        rt.anchoredPosition += p.spawnOffset + new Vector2(
+            UnityEngine.Random.Range(-p.randomOffset.x, p.randomOffset.x),
+            UnityEngine.Random.Range(-p.randomOffset.y, p.randomOffset.y));
+
+        if (value != null && !string.IsNullOrEmpty(p.textFormat))
+        {
+            TMP_Text txt = go.GetComponentInChildren<TMP_Text>(true);
+            if (txt != null)
+            {
+                try { txt.text = string.Format(p.textFormat, value); }
+                catch (FormatException) { txt.text = p.textFormat; }
+            }
+        }
+
+        foreach (Graphic g in go.GetComponentsInChildren<Graphic>(true)) g.raycastTarget = false;
+        CanvasGroup group = go.GetComponent<CanvasGroup>();
+        if (group == null) group = go.AddComponent<CanvasGroup>();
+        group.blocksRaycasts = false;
+
+        StartCoroutine(PopupRoutine(p, rt, group, rt.localScale * Mathf.Max(0.01f, sizeMultiplier)));
+        return go;
+    }
+
+    private IEnumerator PopupRoutine(PopupSettings p, RectTransform rt, CanvasGroup group, Vector3 baseScale)
+    {
+        Vector2 start = rt.anchoredPosition;
+        float scaleIn = Mathf.Max(0f, p.scaleInDuration);
+        float jump = Mathf.Max(0f, p.jumpDuration);
+        float appear = Mathf.Max(scaleIn, jump);
+        float show = Mathf.Max(0f, p.showTime);
+        float fade = Mathf.Max(0f, p.fadeDuration);
+        float total = appear + show + fade;
+
+        float t = 0f;
+        while (rt != null)
+        {
+            // Pop in
+            float s = scaleIn > 0f ? MenuManager.Ease(p.scaleInEase, Mathf.Clamp01(t / scaleIn), p.scaleInCurve) : 1f;
+            rt.localScale = baseScale * Mathf.LerpUnclamped(p.startScale, 1f, s);
+
+            // Jump up
+            float j = jump > 0f ? MenuManager.Ease(p.jumpEase, Mathf.Clamp01(t / jump), p.jumpCurve) : 1f;
+            float y = p.jumpHeight * j;
+
+            // Fade out (drifting up a bit more)
+            float f = fade > 0f ? Mathf.Clamp01((t - appear - show) / fade) : (t >= appear + show ? 1f : 0f);
+            y += p.fadeDrift * f;
+            group.alpha = 1f - f;
+
+            rt.anchoredPosition = start + Vector2.up * y;
+
+            if (t >= total) break;
+            yield return null;
+            t += DeltaTime();
+        }
+
+        if (rt != null) Destroy(rt.gameObject);
     }
 
     private void UpdateScoreUI()
@@ -701,11 +1339,16 @@ public class SupermanGameManager : GameManager
     }
 
 #if UNITY_EDITOR
-    /// <summary>Names of GameManager fields that Superman mode does not use (hidden in the Inspector).</summary>
+    // Every serialized field of GameManager EXCEPT debugMode (Debug Settings stays visible).
+    // If you add new fields to GameManager, add their names here to hide them too.
     public static readonly string[] UnusedBaseFields =
     {
         "levelText", "startButton", "nextButton", "totalCounts", "backgroundObject", "backgroundScenes",
-        "typeGameManager", "timerManager", "player", "npcObjects", "minNpcCount", "maxNpcCount", "nextStageDelay"
+        "typeGameManager", "timerManager", "player", "boss", "exitTransition", "stagesToExit",
+        "enableGameOverTransition", "gameOverCamera", "irisTransition", "irisCanvas", "gameOverZoomSize", "gameOverZoomFieldOfView",
+        "gameOverZoomXOffset", "gameOverZoomYOffset", "gameOverZoomDuration", "gameOverZoomCurve", "irisDelay", "gameOverLoadDelay",
+        "gameOverSceneName", "showGameOverGizmo", "gameUI", "gameUIDropDelay", "gameUIDropOffsetY", "gameUIDropDuration",
+        "gameUIDropCurve", "npcObjects", "minNpcCount", "maxNpcCount", "nextStageDelay"
     };
 #endif
 }
@@ -733,7 +1376,7 @@ public class SupermanGameManagerEditor : Editor
         }
 
         EditorGUILayout.LabelField(
-            $"Level: {gm.CurrentLevelIndex}   Diff: {gm.DifficultyLevel}   Score: {gm.Score}   Streak: {gm.Streak}   Fever: {gm.IsFever}   Sliding: {gm.IsSliding}");
+            $"Level: {gm.CurrentLevelIndex}   Diff: {gm.DifficultyLevel}   Score: {gm.Score}   Streak: {gm.Streak}   Fever: {gm.IsFever}   Sliding: {gm.IsSliding}   Intro: {gm.IsPlayingIntro}   Countdown: {gm.IsCountingDown}   Debug: {gm.DebugMode}");
 
         EditorGUILayout.BeginHorizontal();
         if (GUILayout.Button("Start")) gm.StartSuperman();
