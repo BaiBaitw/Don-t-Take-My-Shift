@@ -26,6 +26,7 @@ using UnityEngine.Serialization;
 using UnityEngine.UI;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 #endif
 #if UNITY_EDITOR
 using UnityEditor;
@@ -38,6 +39,8 @@ public class MenuManager : MonoBehaviour
     public enum EaseType { Linear, InQuad, OutQuad, InOutQuad, OutCubic, InOutCubic, OutBack, OutElastic, OutBounce, Custom, InCubic, InBack }
     public enum RevealEffect { Scale, Fade, ScaleAndFade, DropIn, RiseUp, SpinIn, FlipIn }
     public enum HideEffect { Shrink, Fade, ShrinkAndFade, FlyUp, FallDown, SpinOut, FlipOut }
+    public enum IntroOrder { FrontToBack, LeftToRight, RightToLeft, SlotOrder, AllAtOnce }
+    public enum ZoomFocus { SelectedLevel, ScreenCenter }
 
     enum SlotState { Locked, Hiding, Gap, Revealing, Unlocked }
 
@@ -134,6 +137,12 @@ public class MenuManager : MonoBehaviour
     [Tooltip("Phase offset between items so they don't float in sync")]
     public float phaseSpread = 1.1f;
 
+    [Header("Unlock Sequence - 0. Stay On Previous Level")]
+    [Tooltip("Before the unlock sequence starts, wait until the IrisBackTransition object has been destroyed")]
+    public bool unlockWaitForIrisTransition = true;
+    [Tooltip("Seconds to stay on the previously played level before rotating to the newly unlocked one")]
+    public float unlockHoldOnPreviousLevel = 0.6f;
+
     [Header("Unlock Sequence - 1. Rotate")]
     [Tooltip("Delay after rotating to the new level's slot before the question mark starts hiding")]
     public float revealDelay = 0.35f;
@@ -176,9 +185,42 @@ public class MenuManager : MonoBehaviour
     [Tooltip("Block input while an unlock sequence is playing")]
     public bool lockInputDuringReveal = true;
 
+    [Header("Press Feedback")]
+    [Tooltip("Scale multiplier while a level button is pressed (0.88 = 12% smaller). Works for both mouse and Enter")]
+    public float pressScale = 0.88f;
+    [Tooltip("Seconds to shrink when pressed")]
+    public float pressDownDuration = 0.06f;
+    [Tooltip("Seconds to grow back when released")]
+    public float pressReleaseDuration = 0.15f;
+    [Tooltip("Run the level's action when the mouse button / Enter is RELEASED. Holding keeps the button shrunk. If off, the action runs as soon as it is pressed")]
+    public bool activateOnRelease = true;
+    [Tooltip("Only used when activateOnRelease is off: how long the button stays pressed after Enter")]
+    public float keyboardPressHoldTime = 0.12f;
+    [Tooltip("When chosen with Enter, also show the Button's own Pressed state (Color Tint / Sprite Swap / Animation)")]
+    public bool showButtonPressedStateOnEnter = true;
+
     [Header("Loading / Time")]
-    [Tooltip("Delay before switching scene after pressing (so the press feedback is visible)")]
+    [Tooltip("Delay before switching scene after a level is chosen (press feedback and zoom play during this time)")]
     public float loadDelay = 0.15f;
+
+    [Header("Level Select Zoom")]
+    [Tooltip("Zoom in after a level is chosen, before the scene loads")]
+    public bool enableSelectZoom = true;
+    [Tooltip("Zoom amount (2 = twice as close)")]
+    public float selectZoomAmount = 2f;
+    [Tooltip("Seconds of zooming. Timed to END when the scene loads: it starts (loadDelay - selectZoomDuration) seconds after the level is chosen. If longer than loadDelay, it starts immediately and is cut off by the scene load")]
+    public float selectZoomDuration = 1.5f;
+    public EaseType selectZoomEase = EaseType.InCubic;
+    [Tooltip("Used when selectZoomEase is Custom")]
+    public AnimationCurve selectZoomCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+    [Tooltip("Zoom toward the chosen level, or toward the screen center")]
+    public ZoomFocus selectZoomFocus = ZoomFocus.SelectedLevel;
+    [Tooltip("Zoom the camera (scene / world objects)")]
+    public bool selectZoomCamera = true;
+    [Tooltip("Zoom the Canvas (UI). Skipped for World Space canvases, since the camera zoom already covers them")]
+    public bool selectZoomCanvas = true;
+    [Tooltip("UI object to scale for the Canvas zoom. Empty = everything in the root Canvas is wrapped in a 'ZoomRoot' automatically")]
+    public RectTransform zoomCanvasRoot;
     [Tooltip("Use time that ignores Time.timeScale")]
     public bool useUnscaledTime = true;
 
@@ -220,6 +262,95 @@ public class MenuManager : MonoBehaviour
     [FormerlySerializedAs("fadeInOnGameStart")]
     public bool irisBackTransitionOnGameStart = false;
 
+    [Header("Title Screen (first game start only, scene changes don't count)")]
+    [Tooltip("Show the logo + press-any-key screen the first time the game starts")]
+    public bool enableTitleScreen = true;
+    [Tooltip("Logo object in the Canvas")]
+    public RectTransform logo;
+    [Tooltip("Press-any-key object in the Canvas")]
+    public RectTransform pressAny;
+    [Tooltip("Keep showing the logo (at its moved position) after the title screen and when returning to the menu")]
+    public bool showLogoAfterIntro = true;
+    [Tooltip("Draw helper lines for the logo target and the intro camera in the Scene view")]
+    public bool showTitleGizmos = true;
+
+    [Header("Title - Logo Floating")]
+    [Tooltip("Float offset amplitude (X = horizontal, Y = vertical, in UI pixels)")]
+    public Vector2 logoFloatAmplitude = new Vector2(0f, 15f);
+    [Tooltip("Float frequency (cycles per second)")]
+    public float logoFloatFrequency = 0.4f;
+    [Tooltip("Sway angle (degrees)")]
+    public float logoSwayAngle = 2f;
+    [Tooltip("Sway frequency (cycles per second)")]
+    public float logoSwayFrequency = 0.25f;
+    [Tooltip("Breathing scale amount (0.02 = +/-2%)")]
+    public float logoBreatheAmount = 0.02f;
+    [Tooltip("Breathing frequency (cycles per second)")]
+    public float logoBreatheFrequency = 0.5f;
+
+    [Header("Title - Press Any Blink")]
+    [Tooltip("Seconds pressAny stays visible in each blink")]
+    public float pressAnyOnTime = 0.8f;
+    [Tooltip("Seconds pressAny stays hidden in each blink")]
+    public float pressAnyOffTime = 0.4f;
+    [Tooltip("Seconds to fade between visible and hidden (0 = hard on/off)")]
+    public float pressAnyBlinkFadeTime = 0.2f;
+    [Range(0f, 1f)] public float pressAnyMinAlpha = 0f;
+    [Range(0f, 1f)] public float pressAnyMaxAlpha = 1f;
+    [Tooltip("Ignore key presses for this many seconds after the title appears")]
+    public float pressAnyInputDelay = 0.3f;
+    [Tooltip("Mouse clicks also count as 'any key'")]
+    public bool pressAnyAcceptsMouse = false;
+    [Tooltip("Gamepad buttons also count as 'any key'")]
+    public bool pressAnyAcceptsGamepad = true;
+
+    [Header("Title - After Key Press")]
+    [Tooltip("Seconds for pressAny to fade out")]
+    public float pressAnyFadeOutDuration = 0.3f;
+    [Tooltip("Delay after pressAny has faded before the logo starts moving")]
+    public float logoMoveDelay = 0.1f;
+    [Tooltip("How far the logo moves (anchoredPosition offset). You can also drag the handle in the Scene view")]
+    public Vector2 logoMoveOffset = new Vector2(0f, 250f);
+    [Tooltip("Seconds for the logo to move")]
+    public float logoMoveDuration = 0.8f;
+    public EaseType logoMoveEase = EaseType.InOutCubic;
+    [Tooltip("Used when logoMoveEase is Custom")]
+    public AnimationCurve logoMoveCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+    [Tooltip("Delay after the logo has moved before the level items appear")]
+    public float levelsAppearDelay = 0.2f;
+
+    [Header("Title - Level Items Appear")]
+    [Tooltip("How the 7 items (levels + question marks) appear")]
+    public RevealEffect introAppearEffect = RevealEffect.ScaleAndFade;
+    public EaseType introAppearEase = EaseType.OutBack;
+    [Tooltip("Used when introAppearEase is Custom")]
+    public AnimationCurve introAppearCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+    [Tooltip("Seconds for each item's animation")]
+    public float introAppearDuration = 0.5f;
+    [Tooltip("Seconds between items starting (ignored for AllAtOnce)")]
+    public float introAppearStagger = 0.08f;
+    [Tooltip("Order the items appear in")]
+    public IntroOrder introAppearOrder = IntroOrder.FrontToBack;
+
+    [Header("Title - Camera")]
+    [Tooltip("Camera to zoom (empty = Camera.main). Note: Screen Space UI is not affected by camera zoom")]
+    public Camera introCamera;
+    [Tooltip("Camera position offset during the title screen (world units, from its normal position). You can also drag the handle in the Scene view")]
+    public Vector3 introCameraOffset = new Vector3(0f, 2f, 0f);
+    [Tooltip("Zoom during the title screen (1 = none, 2 = twice as close). Uses Orthographic Size or Field of View")]
+    public float introCameraZoom = 1.5f;
+    [Tooltip("Delay after the key press before the camera starts returning")]
+    public float cameraRestoreDelay = 0f;
+    [Tooltip("Seconds for the camera to return to its normal position")]
+    public float cameraRestoreDuration = 1.2f;
+    public EaseType cameraRestoreEase = EaseType.InOutCubic;
+    [Tooltip("Used when cameraRestoreEase is Custom")]
+    public AnimationCurve cameraRestoreCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+
+    [Header("Title - Audio (optional)")]
+    public AudioClip pressAnySfx;
+    public AudioClip introAppearSfx;
+
     static bool menuLoadedBefore;
     static int startupSceneHandle = -1; // the scene the game (or Play Mode) started in
 
@@ -251,12 +382,16 @@ public class MenuManager : MonoBehaviour
         public float dim;
         public float appliedDim = -1f;
         public float depth;
+        public float ringX;
         public float phase;
         // effect values written by the unlock sequence
         public Vector3 fxScale = Vector3.one;
         public float fxAlpha = 1f;
         public Vector2 fxOffset;
         public float fxRot;
+        // press feedback
+        public float press;      // 0 = normal, 1 = fully pressed
+        public bool keyHeld;     // pressed via Enter
 
         public void ResetFx()
         {
@@ -289,6 +424,25 @@ public class MenuManager : MonoBehaviour
     bool canSort;
     int siblingBase;
     int supermanIndex = -1;
+    int pointerPressIndex = -1; // slot currently held down by the mouse / touch
+    int keyPressIndex = -1;     // slot currently held down by Enter
+    GameObject currentIrisTransition;
+
+    // Title screen state
+    bool introPlaying;
+    float[] introProgress;   // 0..1 per slot, 1 = fully shown
+    Coroutine introRoutine, cameraRoutine;
+    CanvasGroup pressAnyGroup;
+    bool pressAnyBlinking;
+    float pressAnyBlinkStart;
+    bool logoCaptured;
+    Vector2 logoStartPos, logoBasePos;
+    Vector3 logoBaseScale;
+    Quaternion logoBaseRot;
+    bool cameraCaptured;
+    Vector3 camInitPos;
+    float camInitSize, camInitFov;
+
     readonly List<Visual> sortBuffer = new List<Visual>();
     static readonly System.Comparison<Visual> DepthComparer = (a, b) => a.depth.CompareTo(b.depth);
 
@@ -320,6 +474,32 @@ public class MenuManager : MonoBehaviour
         spaceProgress = new float[slotCount];
         weights = new float[slotCount];
         centers = new float[slotCount];
+        introProgress = new float[slotCount];
+        for (int i = 0; i < slotCount; i++) introProgress[i] = 1f;
+
+        // Title screen objects
+        if (logo != null)
+        {
+            logoStartPos = logo.anchoredPosition;
+            logoBasePos = logoStartPos;
+            logoBaseScale = logo.localScale;
+            logoBaseRot = logo.localRotation;
+            logoCaptured = true;
+        }
+        if (pressAny != null)
+        {
+            pressAnyGroup = pressAny.GetComponent<CanvasGroup>();
+            if (pressAnyGroup == null) pressAnyGroup = pressAny.gameObject.AddComponent<CanvasGroup>();
+            pressAnyGroup.blocksRaycasts = false;
+        }
+        if (introCamera == null) introCamera = Camera.main;
+        if (introCamera != null)
+        {
+            camInitPos = introCamera.transform.position;
+            camInitSize = introCamera.orthographicSize;
+            camInitFov = introCamera.fieldOfView;
+            cameraCaptured = true;
+        }
 
         Transform commonParent = null;
         RectTransform anchorRef = null;
@@ -430,7 +610,236 @@ public class MenuManager : MonoBehaviour
         menuLoadedBefore = true;
         if (!isGameStart || irisBackTransitionOnGameStart) SpawnIrisBackTransition();
 
-        Rebuild(false);
+        if (isGameStart && enableTitleScreen)
+        {
+            PlayIntro(false);
+        }
+        else
+        {
+            Rebuild(false);
+            SetupWithoutIntro();
+        }
+    }
+
+    // ------------------------- Title screen -------------------------
+    /// <summary>Plays the title screen (logo + press any key). Also used by the Inspector test button.</summary>
+    public void PlayIntro() => PlayIntro(true);
+
+    void PlayIntro(bool keepCurrentFocus)
+    {
+        if (introRoutine != null) StopCoroutine(introRoutine);
+        if (cameraRoutine != null) { StopCoroutine(cameraRoutine); cameraRoutine = null; }
+        introPlaying = true;
+        for (int i = 0; i < slotCount; i++) introProgress[i] = 0f;
+        Rebuild(keepCurrentFocus);
+        introRoutine = StartCoroutine(IntroRoutine());
+    }
+
+    void SetupWithoutIntro()
+    {
+        if (logo != null)
+        {
+            bool show = showLogoAfterIntro;
+            logo.gameObject.SetActive(show);
+            if (show) logoBasePos = logoStartPos + logoMoveOffset;
+        }
+        if (pressAny != null) pressAny.gameObject.SetActive(false);
+        pressAnyBlinking = false;
+        SetCameraPose(1f);
+    }
+
+    IEnumerator IntroRoutine()
+    {
+        inputLocked = true;
+
+        // Initial state: logo in the middle, pressAny blinking, camera zoomed in, ring hidden
+        if (logo != null)
+        {
+            logo.gameObject.SetActive(true);
+            logoBasePos = logoStartPos;
+        }
+        if (pressAny != null)
+        {
+            pressAny.gameObject.SetActive(true);
+            pressAnyGroup.alpha = pressAnyMaxAlpha;
+        }
+        pressAnyBlinking = true;
+        pressAnyBlinkStart = Now;
+        SetCameraPose(0f);
+        UpdateTitleVisuals(); // apply logo / pressAny start state this frame (avoids a one-frame flash)
+
+        // Wait for any key
+        float waited = 0f;
+        while (true)
+        {
+            waited += Dt;
+            if (waited >= pressAnyInputDelay && AnyKeyPressed()) break;
+            yield return null;
+        }
+        Play(pressAnySfx);
+        pressAnyBlinking = false;
+
+        // Camera returns (runs in parallel)
+        cameraRoutine = StartCoroutine(CameraRestoreRoutine());
+
+        // pressAny fades out
+        if (pressAny != null)
+        {
+            float from = pressAnyGroup.alpha;
+            float t = 0f;
+            while (t < pressAnyFadeOutDuration)
+            {
+                t += Dt;
+                pressAnyGroup.alpha = Mathf.Lerp(from, 0f, Mathf.Clamp01(t / pressAnyFadeOutDuration));
+                yield return null;
+            }
+            pressAnyGroup.alpha = 0f;
+            pressAny.gameObject.SetActive(false);
+        }
+
+        // Logo moves
+        yield return Wait(logoMoveDelay);
+        if (logo != null)
+        {
+            Vector2 target = logoStartPos + logoMoveOffset;
+            float t = 0f;
+            while (t < logoMoveDuration)
+            {
+                t += Dt;
+                float e = Ease(logoMoveEase, Mathf.Clamp01(t / logoMoveDuration), logoMoveCurve);
+                logoBasePos = Vector2.LerpUnclamped(logoStartPos, target, e);
+                yield return null;
+            }
+            logoBasePos = target;
+        }
+
+        // Level items appear
+        yield return Wait(levelsAppearDelay);
+        List<int> order = BuildIntroOrder();
+        float stagger = introAppearOrder == IntroOrder.AllAtOnce ? 0f : Mathf.Max(0f, introAppearStagger);
+        float dur = Mathf.Max(0f, introAppearDuration);
+        float totalTime = (order.Count > 0 ? (order.Count - 1) * stagger : 0f) + dur;
+        Play(introAppearSfx);
+        float time = 0f;
+        while (time < totalTime)
+        {
+            time += Dt;
+            for (int k = 0; k < order.Count; k++)
+            {
+                float local = time - k * stagger;
+                introProgress[order[k]] = dur > 0f ? Mathf.Clamp01(local / dur) : (local >= 0f ? 1f : 0f);
+            }
+            yield return null;
+        }
+        for (int i = 0; i < slotCount; i++) introProgress[i] = 1f;
+
+        // Done: hand over to the normal menu (and the unlock sequence, if any)
+        introPlaying = false;
+        inputLocked = false;
+        introRoutine = null;
+        StartRevealIfNeeded();
+    }
+
+    List<int> BuildIntroOrder()
+    {
+        ApplyLayout(0f); // make sure depth / x are up to date
+        var list = new List<int>();
+        for (int i = 0; i < slotCount; i++)
+            if (ActiveVisual(i) != null) list.Add(i);
+
+        switch (introAppearOrder)
+        {
+            case IntroOrder.FrontToBack:
+                list.Sort((a, b) => ActiveVisual(b).depth.CompareTo(ActiveVisual(a).depth));
+                break;
+            case IntroOrder.LeftToRight:
+                list.Sort((a, b) => ActiveVisual(a).ringX.CompareTo(ActiveVisual(b).ringX));
+                break;
+            case IntroOrder.RightToLeft:
+                list.Sort((a, b) => ActiveVisual(b).ringX.CompareTo(ActiveVisual(a).ringX));
+                break;
+        }
+        return list;
+    }
+
+    IEnumerator CameraRestoreRoutine()
+    {
+        yield return Wait(cameraRestoreDelay);
+        float t = 0f;
+        while (t < cameraRestoreDuration)
+        {
+            t += Dt;
+            SetCameraPose(Ease(cameraRestoreEase, Mathf.Clamp01(t / cameraRestoreDuration), cameraRestoreCurve));
+            yield return null;
+        }
+        SetCameraPose(1f);
+        cameraRoutine = null;
+    }
+
+    // t = 0 -> title pose (offset + zoomed in), t = 1 -> normal pose
+    void SetCameraPose(float t)
+    {
+        if (!cameraCaptured || introCamera == null) return;
+        float zoom = Mathf.Max(0.01f, introCameraZoom);
+        introCamera.transform.position = Vector3.LerpUnclamped(camInitPos + introCameraOffset, camInitPos, t);
+        if (introCamera.orthographic)
+            introCamera.orthographicSize = Mathf.LerpUnclamped(camInitSize / zoom, camInitSize, t);
+        else
+            introCamera.fieldOfView = Mathf.LerpUnclamped(camInitFov / zoom, camInitFov, t);
+    }
+
+    void UpdateTitleVisuals()
+    {
+        float time = Now;
+
+        // Logo floating
+        if (logo != null && logoCaptured && logo.gameObject.activeSelf)
+        {
+            Vector2 off = new Vector2(
+                Mathf.Sin(time * logoFloatFrequency * 0.5f * TAU + 1.3f) * logoFloatAmplitude.x,
+                Mathf.Sin(time * logoFloatFrequency * TAU) * logoFloatAmplitude.y);
+            logo.anchoredPosition = logoBasePos + off;
+            logo.localRotation = logoBaseRot * Quaternion.Euler(0f, 0f, Mathf.Sin(time * logoSwayFrequency * TAU) * logoSwayAngle);
+            logo.localScale = logoBaseScale * (1f + Mathf.Sin(time * logoBreatheFrequency * TAU) * logoBreatheAmount);
+        }
+
+        // pressAny blinking
+        if (pressAnyBlinking && pressAnyGroup != null)
+        {
+            float on = Mathf.Max(0f, pressAnyOnTime), offT = Mathf.Max(0f, pressAnyOffTime);
+            float cycle = on + offT;
+            float a = 1f;
+            if (cycle > 0f)
+            {
+                float tt = FMod(time - pressAnyBlinkStart, cycle);
+                float f = pressAnyBlinkFadeTime;
+                if (tt < on) a = f > 0f ? Mathf.Clamp01(tt / f) : 1f;
+                else a = f > 0f ? 1f - Mathf.Clamp01((tt - on) / f) : 0f;
+            }
+            pressAnyGroup.alpha = Mathf.Lerp(pressAnyMinAlpha, pressAnyMaxAlpha, a);
+        }
+    }
+
+    bool AnyKeyPressed()
+    {
+#if ENABLE_INPUT_SYSTEM
+        var kb = Keyboard.current;
+        if (kb != null && kb.anyKey.wasPressedThisFrame && !kb.escapeKey.wasPressedThisFrame) return true;
+        if (pressAnyAcceptsGamepad && Gamepad.current != null)
+        {
+            foreach (var c in Gamepad.current.allControls)
+                if (c is ButtonControl b && !b.synthetic && b.wasPressedThisFrame) return true;
+        }
+        if (pressAnyAcceptsMouse && Mouse.current != null &&
+            (Mouse.current.leftButton.wasPressedThisFrame || Mouse.current.rightButton.wasPressedThisFrame || Mouse.current.middleButton.wasPressedThisFrame))
+            return true;
+        return false;
+#else
+        if (!Input.anyKeyDown || Input.GetKeyDown(KeyCode.Escape)) return false;
+        bool mouse = Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1) || Input.GetMouseButtonDown(2);
+        if (mouse && !pressAnyAcceptsMouse) return false;
+        return true;
+#endif
     }
 
     void SpawnIrisBackTransition()
@@ -449,6 +858,7 @@ public class MenuManager : MonoBehaviour
         }
 
         GameObject transition = Instantiate(irisBackTransitionPrefab, target.transform, false);
+        currentIrisTransition = transition;
         transition.transform.SetAsLastSibling(); // last child = drawn on top
         Debug.Log($"[MenuManager] Spawned \"{transition.name}\" under Canvas \"{target.name}\".", transition);
         StartCoroutine(IrisBackTransitionRoutine(transition));
@@ -467,13 +877,13 @@ public class MenuManager : MonoBehaviour
         }
 
         // Pause every legacy Animation clip as well
-        var states = new List<AnimationState>();
+        var animStates = new List<AnimationState>();
         var stateSpeeds = new List<float>();
         foreach (Animation anim in go.GetComponentsInChildren<Animation>(true))
         {
             foreach (AnimationState s in anim)
             {
-                states.Add(s);
+                animStates.Add(s);
                 stateSpeeds.Add(s.speed);
                 s.speed = 0f;
             }
@@ -485,8 +895,8 @@ public class MenuManager : MonoBehaviour
         // Resume
         for (int i = 0; i < animators.Length; i++)
             if (animators[i] != null) animators[i].speed = animatorSpeeds[i];
-        for (int i = 0; i < states.Count; i++)
-            if (states[i] != null) states[i].speed = stateSpeeds[i];
+        for (int i = 0; i < animStates.Count; i++)
+            if (animStates[i] != null) animStates[i].speed = stateSpeeds[i];
 
         if (irisBackTransitionDestroyDelay > 0f)
             yield return new WaitForSecondsRealtime(irisBackTransitionDestroyDelay);
@@ -508,6 +918,7 @@ public class MenuManager : MonoBehaviour
         HandleInput();
         UpdateSupermanFlag();
         ApplyLayout(dt);
+        UpdateTitleVisuals();
     }
 
     void UpdateSupermanFlag()
@@ -542,8 +953,10 @@ public class MenuManager : MonoBehaviour
 
         int prevFront = FrontIndex;
         if (revealRoutine != null) { StopCoroutine(revealRoutine); revealRoutine = null; }
-        inputLocked = false;
+        inputLocked = introPlaying;
         isLoading = false;
+        pointerPressIndex = -1;
+        EndKeyboardPress();
 
         unlockedCount = Mathf.Clamp(PlayerPrefs.GetInt(KeyUnlocked, 1), 1, slotCount);
         int revealed = Mathf.Clamp(PlayerPrefs.GetInt(KeyRevealed, 0), 0, unlockedCount);
@@ -553,7 +966,7 @@ public class MenuManager : MonoBehaviour
             bool open = i < revealed;
             states[i] = open ? SlotState.Unlocked : SlotState.Locked;
             spaceProgress[i] = 0f;
-            if (options[i] != null) { options[i].ResetFx(); options[i].go.SetActive(open); }
+            if (options[i] != null) { options[i].ResetFx(); options[i].press = 0f; options[i].keyHeld = false; options[i].go.SetActive(open); }
             if (marks[i] != null) { marks[i].ResetFx(); marks[i].go.SetActive(!open); }
         }
 
@@ -574,15 +987,28 @@ public class MenuManager : MonoBehaviour
             if (marks[i] != null) { marks[i].dim = d; marks[i].appliedDim = -1f; }
         }
 
-        if (revealed < unlockedCount)
-            revealRoutine = StartCoroutine(RevealRoutine(revealed, unlockedCount));
+        // The unlock sequence waits until the title screen is finished
+        if (!introPlaying) StartRevealIfNeeded();
 
         ApplyLayout(0f);
+    }
+
+    void StartRevealIfNeeded()
+    {
+        if (revealRoutine != null || slotCount == 0) return;
+        int revealed = Mathf.Clamp(PlayerPrefs.GetInt(KeyRevealed, 0), 0, unlockedCount);
+        if (revealed < unlockedCount)
+            revealRoutine = StartCoroutine(RevealRoutine(revealed, unlockedCount));
     }
 
     IEnumerator RevealRoutine(int from, int to)
     {
         if (lockInputDuringReveal) inputLocked = true;
+
+        // 0. Stay on the previously played level (the menu opens focused on it)
+        if (unlockWaitForIrisTransition)
+            while (currentIrisTransition != null) yield return null;
+        yield return Wait(unlockHoldOnPreviousLevel);
 
         for (int k = from; k < to; k++)
         {
@@ -616,6 +1042,7 @@ public class MenuManager : MonoBehaviour
             }
             states[k] = SlotState.Gap;
             spaceProgress[k] = 0f;
+            ApplyLayout(0f);
 
             // 3. Wait
             yield return Wait(gapWaitTime);
@@ -631,6 +1058,9 @@ public class MenuManager : MonoBehaviour
                 ApplyRevealFx(o, 0f);
                 o.go.SetActive(true);
             }
+            // Apply the start state right now: coroutines run after Update, so without this
+            // the button would be drawn for one frame at its old size (the "flash")
+            ApplyLayout(0f);
             Play(revealSfx);
             float rt = 0f;
             while (rt < revealDuration)
@@ -663,18 +1093,25 @@ public class MenuManager : MonoBehaviour
 
     void ApplyRevealFx(Visual v, float p)
     {
-        v.ResetFx();
-        float e = Ease(revealEase, p, revealCurve);
+        EvaluateReveal(revealEffect, revealEase, revealCurve, p, out v.fxScale, out v.fxAlpha, out v.fxOffset, out v.fxRot);
+    }
+
+    // Shared by the unlock pop-in and the title-screen appear animation
+    void EvaluateReveal(RevealEffect effect, EaseType ease, AnimationCurve curve, float p,
+                        out Vector3 scale, out float alpha, out Vector2 offset, out float rot)
+    {
+        scale = Vector3.one; alpha = 1f; offset = Vector2.zero; rot = 0f;
+        float e = Ease(ease, p, curve);
         float fade = Mathf.Clamp01(Ease(EaseType.OutQuad, p, null));
-        switch (revealEffect)
+        switch (effect)
         {
-            case RevealEffect.Scale: v.fxScale = Vector3.one * e; break;
-            case RevealEffect.Fade: v.fxAlpha = Mathf.Clamp01(e); break;
-            case RevealEffect.ScaleAndFade: v.fxScale = Vector3.one * e; v.fxAlpha = fade; break;
-            case RevealEffect.DropIn: v.fxOffset = new Vector2(0f, (1f - e) * revealOffsetDistance); v.fxAlpha = fade; break;
-            case RevealEffect.RiseUp: v.fxOffset = new Vector2(0f, -(1f - e) * revealOffsetDistance); v.fxAlpha = fade; break;
-            case RevealEffect.SpinIn: v.fxScale = Vector3.one * e; v.fxRot = (1f - e) * revealSpinAngle; v.fxAlpha = fade; break;
-            case RevealEffect.FlipIn: v.fxScale = new Vector3(e, 1f, 1f); v.fxAlpha = fade; break;
+            case RevealEffect.Scale: scale = Vector3.one * e; break;
+            case RevealEffect.Fade: alpha = Mathf.Clamp01(e); break;
+            case RevealEffect.ScaleAndFade: scale = Vector3.one * e; alpha = fade; break;
+            case RevealEffect.DropIn: offset = new Vector2(0f, (1f - e) * revealOffsetDistance); alpha = fade; break;
+            case RevealEffect.RiseUp: offset = new Vector2(0f, -(1f - e) * revealOffsetDistance); alpha = fade; break;
+            case RevealEffect.SpinIn: scale = Vector3.one * e; rot = (1f - e) * revealSpinAngle; alpha = fade; break;
+            case RevealEffect.FlipIn: scale = new Vector3(e, 1f, 1f); alpha = fade; break;
         }
     }
 
@@ -774,13 +1211,21 @@ public class MenuManager : MonoBehaviour
     // ------------------------- Input -------------------------
     void HandleInput()
     {
-        if (slotCount == 0 || isLoading) { pointerTracking = false; return; }
+        // Release the mouse press first, even if we return early below (e.g. loading already started on release)
+        if (pointerPressIndex >= 0 && (!PointerHeld() || swipedThisPress || pointerPressIndex != FrontIndex))
+            pointerPressIndex = -1;
+
+        if (slotCount == 0 || isLoading || introPlaying) { pointerTracking = false; return; }
 
         if (!inputLocked)
         {
             if (KeyLeft()) Step(-1);
             if (KeyRight()) Step(1);
-            if (KeySubmit()) TrySelect(FrontIndex, false);
+            if (KeySubmit())
+            {
+                if (activateOnRelease) BeginKeyboardPress(FrontIndex);
+                else TrySelect(FrontIndex, false);
+            }
         }
 
         // Mouse / touch horizontal swipe
@@ -809,6 +1254,36 @@ public class MenuManager : MonoBehaviour
             }
         }
 
+        // Mouse / touch press feedback on the front level button
+        if (PointerDown() && !inputLocked)
+        {
+            int f = FrontIndex;
+            pointerPressIndex = -1;
+            if (f >= 0 && states[f] == SlotState.Unlocked && options[f] != null && options[f].go.activeInHierarchy &&
+                RectTransformUtility.RectangleContainsScreenPoint(options[f].rect, PointerPos(), UICamera()))
+                pointerPressIndex = f;
+        }
+        if (pointerPressIndex >= 0 && (swipedThisPress || !PointerHeld() || pointerPressIndex != FrontIndex))
+            pointerPressIndex = -1;
+        // Press mode: run the action as soon as the mouse goes down (otherwise the Button's onClick runs it on release)
+        if (!activateOnRelease && pointerPressIndex >= 0 && PointerDown())
+            TrySelect(pointerPressIndex, true);
+
+        // Enter held: stays pressed until released, then runs the action
+        if (keyPressIndex >= 0)
+        {
+            if (keyPressIndex != FrontIndex || inputLocked)
+            {
+                EndKeyboardPress(); // ring moved or input got locked -> cancel
+            }
+            else if (!KeySubmitHeld())
+            {
+                int idx = keyPressIndex;
+                EndKeyboardPress();
+                TrySelect(idx, false);
+            }
+        }
+
         if (PointerUp()) pointerTracking = false;
     }
 
@@ -822,7 +1297,7 @@ public class MenuManager : MonoBehaviour
     public void TrySelect(int index, bool fromPointer)
     {
         if (index < 0 || index >= slotCount || index != FrontIndex) return;
-        if (isLoading || inputLocked) return;
+        if (isLoading || inputLocked || introPlaying) return;
         if (sliding && !allowClickWhileSliding) return;
         if (fromPointer && swipedThisPress) return;
         if (states[index] != SlotState.Unlocked || options[index] == null) return;
@@ -833,7 +1308,75 @@ public class MenuManager : MonoBehaviour
             Debug.LogWarning($"[MenuManager] Level {index + 1} ({levels[index].label}) has no sceneName set.", this);
             return;
         }
+        if (fromPointer && activateOnRelease) pointerPressIndex = -1; // released -> grow back
+        if (!fromPointer && !activateOnRelease) StartCoroutine(KeyboardPressRoutine(index));
         StartCoroutine(LoadRoutine(index, scene));
+    }
+
+    void BeginKeyboardPress(int index)
+    {
+        if (index < 0 || index >= slotCount || index != FrontIndex) return;
+        if (isLoading || inputLocked || introPlaying) return;
+        if (sliding && !allowClickWhileSliding) return;
+        if (states[index] != SlotState.Unlocked || options[index] == null) return;
+
+        if (keyPressIndex >= 0) EndKeyboardPress();
+        keyPressIndex = index;
+        options[index].keyHeld = true;
+        if (showButtonPressedStateOnEnter) SetButtonPressedVisual(levels[index].button, true);
+    }
+
+    void EndKeyboardPress()
+    {
+        if (keyPressIndex < 0) return;
+        if (options[keyPressIndex] != null) options[keyPressIndex].keyHeld = false;
+        if (showButtonPressedStateOnEnter) SetButtonPressedVisual(levels[keyPressIndex].button, false);
+        keyPressIndex = -1;
+    }
+
+    // Press mode (activateOnRelease off): hold the button down for a moment, then release
+    IEnumerator KeyboardPressRoutine(int index)
+    {
+        Visual v = options[index];
+        Button b = levels[index].button;
+        if (v != null) v.keyHeld = true;
+        if (showButtonPressedStateOnEnter) SetButtonPressedVisual(b, true);
+
+        if (keyboardPressHoldTime > 0f) yield return new WaitForSecondsRealtime(keyboardPressHoldTime);
+
+        if (v != null) v.keyHeld = false;
+        if (showButtonPressedStateOnEnter) SetButtonPressedVisual(b, false);
+    }
+
+    // Shows / clears the Button's own Pressed look, following its Transition setting
+    static void SetButtonPressedVisual(Button b, bool pressed)
+    {
+        if (b == null) return;
+        switch (b.transition)
+        {
+            case Selectable.Transition.ColorTint:
+                if (b.targetGraphic != null)
+                {
+                    ColorBlock cb = b.colors;
+                    Color c = (pressed ? cb.pressedColor : cb.normalColor) * cb.colorMultiplier;
+                    b.targetGraphic.CrossFadeColor(c, cb.fadeDuration, true, true);
+                }
+                break;
+            case Selectable.Transition.SpriteSwap:
+                var img = b.targetGraphic as Image;
+                if (img != null) img.overrideSprite = pressed ? b.spriteState.pressedSprite : null;
+                break;
+            case Selectable.Transition.Animation:
+                Animator anim = b.animator;
+                if (anim != null && anim.isActiveAndEnabled && anim.runtimeAnimatorController != null)
+                {
+                    AnimationTriggers t = b.animationTriggers;
+                    anim.ResetTrigger(t.normalTrigger);
+                    anim.ResetTrigger(t.pressedTrigger);
+                    anim.SetTrigger(pressed ? t.pressedTrigger : t.normalTrigger);
+                }
+                break;
+        }
     }
 
     IEnumerator LoadRoutine(int index, string scene)
@@ -842,9 +1385,111 @@ public class MenuManager : MonoBehaviour
         PlayerPrefs.SetInt(KeyLastLaunched, index);
         PlayerPrefs.Save();
         Play(confirmSfx);
+        if (enableSelectZoom) StartCoroutine(SelectZoomRoutine(index));
         if (loadDelay > 0f) yield return new WaitForSecondsRealtime(loadDelay);
         Time.timeScale = 1f;
         SceneManager.LoadScene(scene);
+    }
+
+    // ------------------------- Level select zoom -------------------------
+    IEnumerator SelectZoomRoutine(int index)
+    {
+        // Start so that the zoom ends exactly when the scene loads
+        float startDelay = Mathf.Max(0f, loadDelay - selectZoomDuration);
+        if (startDelay > 0f) yield return new WaitForSecondsRealtime(startDelay);
+
+        float amount = Mathf.Max(0.01f, selectZoomAmount);
+
+        // Focus point on screen
+        Vector2 screenFocus = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+        RectTransform btnRect = options[index] != null ? options[index].rect : null;
+        if (selectZoomFocus == ZoomFocus.SelectedLevel && btnRect != null)
+            screenFocus = RectTransformUtility.WorldToScreenPoint(UICamera(), btnRect.position);
+
+        // Camera setup
+        Camera cam = introCamera != null ? introCamera : Camera.main;
+        if (cameraRoutine != null) { StopCoroutine(cameraRoutine); cameraRoutine = null; }
+        bool doCam = selectZoomCamera && cam != null;
+        Vector3 camStart = Vector3.zero, camShift = Vector3.zero;
+        float camSize = 0f, camFov = 0f;
+        if (doCam)
+        {
+            camStart = cam.transform.position;
+            camSize = cam.orthographicSize;
+            camFov = cam.fieldOfView;
+            float depth = Mathf.Abs(Vector3.Dot(-camStart, cam.transform.forward));
+            if (depth < 0.01f) depth = 10f;
+            Vector3 f = cam.ScreenToWorldPoint(new Vector3(screenFocus.x, screenFocus.y, depth));
+            Vector3 c = cam.ScreenToWorldPoint(new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, depth));
+            camShift = f - c; // camera moves toward the focus point as it zooms
+        }
+
+        // Canvas setup
+        RectTransform root = null;
+        Vector3 rootStartPos = Vector3.zero, rootStartScale = Vector3.one, pivotLocal = Vector3.zero;
+        if (selectZoomCanvas)
+        {
+            Canvas rc = canvas != null ? canvas.rootCanvas : null;
+            if (rc != null && rc.renderMode != RenderMode.WorldSpace)
+            {
+                root = zoomCanvasRoot != null ? zoomCanvasRoot : WrapCanvasInZoomRoot(rc);
+                if (root != null && root.parent != null)
+                {
+                    rootStartPos = root.localPosition;
+                    rootStartScale = root.localScale;
+                    Camera uiCam = rc.renderMode == RenderMode.ScreenSpaceOverlay ? null : rc.worldCamera;
+                    RectTransformUtility.ScreenPointToWorldPointInRectangle((RectTransform)root.parent, screenFocus, uiCam, out Vector3 worldPivot);
+                    pivotLocal = root.parent.InverseTransformPoint(worldPivot);
+                    pivotLocal.z = rootStartPos.z;
+                }
+            }
+        }
+
+        float t = 0f;
+        float dur = Mathf.Max(0f, selectZoomDuration);
+        while (true)
+        {
+            float p = dur > 0f ? Mathf.Clamp01(t / dur) : 1f;
+            float z = Mathf.LerpUnclamped(1f, amount, Ease(selectZoomEase, p, selectZoomCurve));
+            z = Mathf.Max(0.01f, z);
+
+            if (doCam && cam != null)
+            {
+                cam.transform.position = camStart + camShift * (1f - 1f / z);
+                if (cam.orthographic) cam.orthographicSize = camSize / z;
+                else cam.fieldOfView = camFov / z;
+            }
+            if (root != null)
+            {
+                root.localScale = rootStartScale * z;
+                root.localPosition = pivotLocal + (rootStartPos - pivotLocal) * z;
+            }
+
+            if (p >= 1f) break;
+            yield return null;
+            t += Time.unscaledDeltaTime;
+        }
+    }
+
+    // Moves every child of the root Canvas under one full-screen "ZoomRoot" so the whole UI can be scaled together
+    RectTransform WrapCanvasInZoomRoot(Canvas rc)
+    {
+        Transform ct = rc.transform;
+        var go = new GameObject("ZoomRoot", typeof(RectTransform));
+        var rootRect = (RectTransform)go.transform;
+        rootRect.SetParent(ct, false);
+        rootRect.anchorMin = Vector2.zero;
+        rootRect.anchorMax = Vector2.one;
+        rootRect.pivot = new Vector2(0.5f, 0.5f);
+        rootRect.offsetMin = Vector2.zero;
+        rootRect.offsetMax = Vector2.zero;
+        go.layer = rc.gameObject.layer;
+
+        var children = new List<Transform>();
+        foreach (Transform child in ct) if (child != rootRect) children.Add(child);
+        foreach (var child in children) child.SetParent(rootRect, false); // same rect, so layout is unchanged
+        zoomCanvasRoot = rootRect;
+        return rootRect;
     }
 
     // ------------------------- Layout / visuals -------------------------
@@ -925,6 +1570,7 @@ public class MenuManager : MonoBehaviour
             float depth = (cos + 1f) * 0.5f; // 1 = front, 0 = back
             v.depth = depth;
             Vector2 pos = ringCenter + new Vector2(Mathf.Sin(a) * ringRadius.x, -cos * ringRadius.y);
+            v.ringX = pos.x;
             float ringScale = Mathf.Lerp(backScale, frontScale, depth);
             float size = isMark ? questionMarkSize : 1f;
 
@@ -940,13 +1586,24 @@ public class MenuManager : MonoBehaviour
                 breathe = 1f + Mathf.Sin(time * breatheFrequency * TAU + ph * 0.7f) * breatheAmount;
             }
 
-            v.rect.anchoredPosition = pos + floatOff + v.fxOffset;
-            v.rect.localScale = Vector3.Scale(v.baseScale * (ringScale * size * breathe), v.fxScale);
-            v.rect.localRotation = Quaternion.Euler(0f, 0f, sway + v.fxRot);
-            v.group.alpha = v.fxAlpha;
+            // Title-screen appear animation (multiplied on top of everything else)
+            Vector3 iScale = Vector3.one; float iAlpha = 1f, iRot = 0f; Vector2 iOff = Vector2.zero;
+            if (introProgress[i] < 1f)
+                EvaluateReveal(introAppearEffect, introAppearEase, introAppearCurve, introProgress[i], out iScale, out iAlpha, out iOff, out iRot);
+
+            v.rect.anchoredPosition = pos + floatOff + v.fxOffset + iOff;
+            // Press feedback (shrink while held)
+            float pressTarget = (!isMark && (i == pointerPressIndex || v.keyHeld)) ? 1f : 0f;
+            float pressDur = pressTarget > v.press ? pressDownDuration : pressReleaseDuration;
+            v.press = pressDur > 0f ? Mathf.MoveTowards(v.press, pressTarget, dt / pressDur) : pressTarget;
+            float pressMul = Mathf.Lerp(1f, pressScale, Mathf.SmoothStep(0f, 1f, v.press));
+
+            v.rect.localScale = Vector3.Scale(Vector3.Scale(v.baseScale * (ringScale * size * breathe * pressMul), v.fxScale), iScale);
+            v.rect.localRotation = Quaternion.Euler(0f, 0f, sway + v.fxRot + iRot);
+            v.group.alpha = v.fxAlpha * iAlpha;
 
             // Only the front, unlocked level button receives pointer clicks
-            v.group.blocksRaycasts = !isMark && i == front && states[i] == SlotState.Unlocked && !inputLocked && !isLoading;
+            v.group.blocksRaycasts = !isMark && i == front && states[i] == SlotState.Unlocked && !inputLocked && !isLoading && !introPlaying;
 
             // Dimming
             float targetDim = (i == front) ? 0f : 1f;
@@ -1059,6 +1716,71 @@ public class MenuManager : MonoBehaviour
         }
         if (questionMarkTemplate == null)
             questionMarkTemplate = GameObject.Find(DefaultQuestionMarkName);
+        if (logo == null)
+        {
+            var go = GameObject.Find("logo");
+            if (go != null) logo = go.transform as RectTransform;
+        }
+        if (pressAny == null)
+        {
+            var go = GameObject.Find("pressAny");
+            if (go != null) pressAny = go.transform as RectTransform;
+        }
+    }
+
+    // ------------------------- Scene view helper lines -------------------------
+    void OnDrawGizmos()
+    {
+        if (!showTitleGizmos) return;
+
+        // Logo: where it moves to
+        if (logo != null && logo.parent != null)
+        {
+            Vector3 startLocal = (Application.isPlaying && logoCaptured)
+                ? logo.localPosition + (Vector3)(logoStartPos - logo.anchoredPosition)
+                : logo.localPosition;
+            Vector3 startWorld = logo.parent.TransformPoint(startLocal);
+            Vector3 targetWorld = logo.parent.TransformPoint(startLocal + (Vector3)logoMoveOffset);
+            Vector3 delta = targetWorld - logo.position;
+
+            var corners = new Vector3[4];
+            logo.GetWorldCorners(corners);
+            Gizmos.color = new Color(1f, 0.85f, 0.1f, 1f);
+            for (int i = 0; i < 4; i++)
+                Gizmos.DrawLine(corners[i] + delta, corners[(i + 1) % 4] + delta);
+            Gizmos.DrawLine(startWorld, targetWorld);
+            Gizmos.DrawWireSphere(targetWorld, logo.parent.lossyScale.x * 10f);
+        }
+
+        // Camera: title-screen view
+        Camera cam = introCamera != null ? introCamera : Camera.main;
+        if (cam != null)
+        {
+            bool useCaptured = Application.isPlaying && cameraCaptured;
+            Vector3 basePos = useCaptured ? camInitPos : cam.transform.position;
+            Vector3 introPos = basePos + introCameraOffset;
+            float zoom = Mathf.Max(0.01f, introCameraZoom);
+            Quaternion rot = cam.transform.rotation;
+
+            Gizmos.color = new Color(0.2f, 0.9f, 1f, 1f);
+            Gizmos.DrawLine(basePos, introPos);
+            if (cam.orthographic)
+            {
+                float h = (useCaptured ? camInitSize : cam.orthographicSize) / zoom;
+                float w = h * cam.aspect;
+                Vector3 r = rot * Vector3.right * w, u = rot * Vector3.up * h;
+                Vector3 c0 = introPos - r - u, c1 = introPos + r - u, c2 = introPos + r + u, c3 = introPos - r + u;
+                Gizmos.DrawLine(c0, c1); Gizmos.DrawLine(c1, c2); Gizmos.DrawLine(c2, c3); Gizmos.DrawLine(c3, c0);
+            }
+            else
+            {
+                float fov = (useCaptured ? camInitFov : cam.fieldOfView) / zoom;
+                Matrix4x4 old = Gizmos.matrix;
+                Gizmos.matrix = Matrix4x4.TRS(introPos, rot, Vector3.one);
+                Gizmos.DrawFrustum(Vector3.zero, fov, Mathf.Min(cam.farClipPlane, 30f), cam.nearClipPlane, cam.aspect);
+                Gizmos.matrix = old;
+            }
+        }
     }
 
     // Case-insensitive, ignores leading/trailing spaces
@@ -1129,6 +1851,11 @@ public class MenuManager : MonoBehaviour
         var k = Keyboard.current; if (k == null) return false;
         return k.enterKey.wasPressedThisFrame || k.numpadEnterKey.wasPressedThisFrame;
     }
+    bool KeySubmitHeld()
+    {
+        var k = Keyboard.current; if (k == null) return false;
+        return k.enterKey.isPressed || k.numpadEnterKey.isPressed;
+    }
     bool PointerDown() => Pointer.current != null && Pointer.current.press.wasPressedThisFrame;
     bool PointerHeld() => Pointer.current != null && Pointer.current.press.isPressed;
     bool PointerUp() => Pointer.current != null && Pointer.current.press.wasReleasedThisFrame;
@@ -1137,6 +1864,7 @@ public class MenuManager : MonoBehaviour
     bool KeyLeft() => Input.GetKeyDown(KeyCode.LeftArrow) || (useADKeys && Input.GetKeyDown(KeyCode.A));
     bool KeyRight() => Input.GetKeyDown(KeyCode.RightArrow) || (useADKeys && Input.GetKeyDown(KeyCode.D));
     bool KeySubmit() => Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter);
+    bool KeySubmitHeld() => Input.GetKey(KeyCode.Return) || Input.GetKey(KeyCode.KeypadEnter);
     bool PointerDown() => Input.GetMouseButtonDown(0);
     bool PointerHeld() => Input.GetMouseButton(0);
     bool PointerUp() => Input.GetMouseButtonUp(0);
@@ -1178,6 +1906,10 @@ public class MenuManagerEditor : Editor
 
         if (m.questionMarkTemplate == null)
             EditorGUILayout.HelpBox("No questionMarkTemplate assigned; locked levels will be hidden.", MessageType.Warning);
+        if (m.enableSelectZoom && m.selectZoomDuration > m.loadDelay)
+            EditorGUILayout.HelpBox($"selectZoomDuration ({m.selectZoomDuration}s) is longer than loadDelay ({m.loadDelay}s): the zoom starts immediately and is cut off when the scene loads.", MessageType.Warning);
+        else if (m.enableSelectZoom)
+            EditorGUILayout.HelpBox($"Select zoom starts {Mathf.Max(0f, m.loadDelay - m.selectZoomDuration):0.##}s after choosing a level and lasts {m.selectZoomDuration:0.##}s.", MessageType.None);
 
         if (GUILayout.Button("Reset Progress (simulate first launch)"))
             Set(m, 1, 0, 0);
@@ -1210,6 +1942,7 @@ public class MenuManagerEditor : Editor
                 if (GUILayout.Button("Right >")) m.Step(1);
             }
             if (GUILayout.Button("Press Front Level (loads scene)")) m.TrySelect(m.FrontIndex, false);
+            if (GUILayout.Button("Replay Title Screen")) m.PlayIntro();
         }
         else
         {
@@ -1227,6 +1960,42 @@ public class MenuManagerEditor : Editor
                 EditorGUILayout.HelpBox($"Level {i + 1} ({lv.label}) has no sceneName set", MessageType.Warning);
             else if (!SceneInBuild(lv.sceneName))
                 EditorGUILayout.HelpBox($"Level {i + 1} scene \"{lv.sceneName}\" is not in the Build Settings scene list", MessageType.Error);
+        }
+    }
+
+    // Drag handles in the Scene view (edit mode only, select the MenuManager object)
+    void OnSceneGUI()
+    {
+        if (Application.isPlaying) return;
+        var m = (MenuManager)target;
+
+        if (m.logo != null && m.logo.parent != null)
+        {
+            Transform parent = m.logo.parent;
+            Vector3 world = parent.TransformPoint(m.logo.localPosition + (Vector3)m.logoMoveOffset);
+            EditorGUI.BeginChangeCheck();
+            Vector3 moved = Handles.PositionHandle(world, parent.rotation);
+            Handles.Label(world, "  Logo target");
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(m, "Move Logo Target");
+                Vector3 local = parent.InverseTransformPoint(moved);
+                m.logoMoveOffset = (Vector2)(local - m.logo.localPosition);
+            }
+        }
+
+        Camera cam = m.introCamera != null ? m.introCamera : Camera.main;
+        if (cam != null)
+        {
+            Vector3 world = cam.transform.position + m.introCameraOffset;
+            EditorGUI.BeginChangeCheck();
+            Vector3 moved = Handles.PositionHandle(world, cam.transform.rotation);
+            Handles.Label(world, "  Title camera");
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(m, "Move Title Camera");
+                m.introCameraOffset = moved - cam.transform.position;
+            }
         }
     }
 

@@ -358,7 +358,37 @@ MonoBehaviour:
     m_RotationOrder: 4
   closeUpSize: 4.29
   closeUpFieldOfView: 30
-  startDelay: 0.5
+  enableOpeningZoomOut: 1
+  openingSize: 1
+  openingFieldOfView: 15
+  openingOffset: {x: 0, y: 0}
+  openingHoldTime: 0
+  openingZoomDuration: 1.5
+  openingZoomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 3.103334
+      outSlope: 3.103334
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0.037037037
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  startDelay: 0
   dropHeight: 5.49
   dropDuration: 0.8
   dropCurve:
@@ -486,7 +516,7 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  nextSceneName: PassScene
+  levelType: 0
   loadDelay: 4
   showGizmos: 1
 --- !u!1 &6158171337660347206

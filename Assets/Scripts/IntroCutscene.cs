@@ -7,7 +7,8 @@ using UnityEngine.UI;
 /// Opening cutscene played when the scene loads:
 /// 1. gameUI is placed below its normal position right away (no animation)
 /// 2. Cinematic black bars appear at the top and bottom of the screen
-/// 3. Camera is zoomed in on the Player's start position
+/// 3. Camera starts on a zoomed-in opening shot and zooms out to a close-up on the Player's start position
+///    (or starts straight on the close-up if Opening Zoom-out is off)
 /// 4. Player drops from the sky to its start position and plays a landing effect
 /// 5. After a hold time, the camera moves to the Boss's Y position and BossAct() is called on BossManager
 /// Call CameraBackToDefault() from another script to end the cutscene:
@@ -71,8 +72,30 @@ public class IntroCutscene : MonoBehaviour
     [Tooltip("Perspective camera: Field of View during the close-up (smaller = closer)")]
     [SerializeField] private float closeUpFieldOfView = 30f;
 
+    [Header("Opening Zoom-out")]
+    [Tooltip("When ON, the camera starts from a zoomed-in shot and zooms out to the close-up above before the Player falls")]
+    [SerializeField] private bool enableOpeningZoomOut = true;
+
+    [Tooltip("Orthographic camera: Orthographic Size of the first (zoomed-in) shot. Should be smaller than Close Up Size")]
+    [SerializeField] private float openingSize = 1f;
+
+    [Tooltip("Perspective camera: Field of View of the first (zoomed-in) shot. Should be smaller than Close Up Field Of View")]
+    [SerializeField] private float openingFieldOfView = 15f;
+
+    [Tooltip("Position of the first shot, as an offset from the Player's start position (see the green gizmo)")]
+    [SerializeField] private Vector2 openingOffset = Vector2.zero;
+
+    [Tooltip("Seconds the camera holds the first shot before zooming out")]
+    [SerializeField] private float openingHoldTime = 0.5f;
+
+    [Tooltip("Time (seconds) the zoom-out takes")]
+    [SerializeField] private float openingZoomDuration = 1.5f;
+
+    [Tooltip("Speed curve of the zoom-out")]
+    [SerializeField] private AnimationCurve openingZoomCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+
     [Header("Player Drop")]
-    [Tooltip("Wait (seconds) after the scene loads before the Player starts falling")]
+    [Tooltip("Wait (seconds) before the Player starts falling (counted after the opening zoom-out, if it's on)")]
     [SerializeField] private float startDelay = 0.5f;
 
     [Tooltip("How high above the start position the Player starts falling from (see the cyan gizmo in the Scene view)")]
@@ -208,16 +231,21 @@ public class IntroCutscene : MonoBehaviour
         SetBarsVisible(true);
         ApplyBars();
 
-        // Camera close-up on the Player's start position
+        // Camera: start on the zoomed-in opening shot, or straight on the close-up
         if (targetCamera != null)
         {
-            Vector3 camPos = defaultCamPos;
-            camPos.x = playerLandPos.x;
-            camPos.y = playerLandPos.y;
-            targetCamera.transform.position = camPos;
-
-            if (targetCamera.orthographic) targetCamera.orthographicSize = closeUpSize;
-            else targetCamera.fieldOfView = closeUpFieldOfView;
+            if (enableOpeningZoomOut)
+            {
+                targetCamera.transform.position = OpeningCamPos;
+                if (targetCamera.orthographic) targetCamera.orthographicSize = openingSize;
+                else targetCamera.fieldOfView = openingFieldOfView;
+            }
+            else
+            {
+                targetCamera.transform.position = CloseUpCamPos;
+                if (targetCamera.orthographic) targetCamera.orthographicSize = closeUpSize;
+                else targetCamera.fieldOfView = closeUpFieldOfView;
+            }
         }
 
         // Player waits in the sky
@@ -284,6 +312,28 @@ public class IntroCutscene : MonoBehaviour
 
     private IEnumerator IntroRoutine()
     {
+        // 0. Opening zoom-out: zoomed-in first shot -> close-up on the Player's start position
+        if (enableOpeningZoomOut && targetCamera != null)
+        {
+            if (openingHoldTime > 0f) yield return new WaitForSeconds(openingHoldTime);
+
+            Sequence zoomOut = DOTween.Sequence().SetId(this);
+            zoomOut.Append(targetCamera.transform.DOMove(CloseUpCamPos, openingZoomDuration).SetEase(openingZoomCurve));
+
+            if (targetCamera.orthographic)
+            {
+                zoomOut.Join(DOTween.To(() => targetCamera.orthographicSize, x => targetCamera.orthographicSize = x,
+                                        closeUpSize, openingZoomDuration).SetEase(openingZoomCurve));
+            }
+            else
+            {
+                zoomOut.Join(DOTween.To(() => targetCamera.fieldOfView, x => targetCamera.fieldOfView = x,
+                                        closeUpFieldOfView, openingZoomDuration).SetEase(openingZoomCurve));
+            }
+
+            yield return zoomOut.WaitForCompletion();
+        }
+
         if (startDelay > 0f) yield return new WaitForSeconds(startDelay);
 
         // 1. Player falls from the sky to the start position (camera stays still)
@@ -387,6 +437,12 @@ public class IntroCutscene : MonoBehaviour
     }
 
     private Vector3 SkyPosition => playerLandPos + Vector3.up * dropHeight;
+
+    /// <summary>Camera position for the close-up on the Player's start position</summary>
+    private Vector3 CloseUpCamPos => new Vector3(playerLandPos.x, playerLandPos.y, defaultCamPos.z);
+
+    /// <summary>Camera position for the zoomed-in opening shot</summary>
+    private Vector3 OpeningCamPos => new Vector3(playerLandPos.x + openingOffset.x, playerLandPos.y + openingOffset.y, defaultCamPos.z);
 
     // ===== Letterbox (black bars) =====
 
@@ -493,6 +549,17 @@ public class IntroCutscene : MonoBehaviour
             Gizmos.color = new Color(0f, 0f, 0f, 0.35f);
             Gizmos.DrawCube(new Vector3(land.x, land.y + halfH - barH * 0.5f, land.z), new Vector3(halfW * 2f, barH, 0f));
             Gizmos.DrawCube(new Vector3(land.x, land.y - halfH + barH * 0.5f, land.z), new Vector3(halfW * 2f, barH, 0f));
+
+            // Green: zoomed-in opening shot (before zooming out to the yellow frame)
+            if (enableOpeningZoomOut)
+            {
+                Vector3 o = new Vector3(land.x + openingOffset.x, land.y + openingOffset.y, land.z);
+                float oHalfH = openingSize;
+                float oHalfW = oHalfH * cam.aspect;
+                Gizmos.color = Color.green;
+                Gizmos.DrawWireCube(o, new Vector3(oHalfW * 2f, oHalfH * 2f, 0f));
+                Gizmos.DrawWireSphere(o, 0.15f);
+            }
         }
 
         // Red: the Y the camera moves to (Boss Y + offset)
