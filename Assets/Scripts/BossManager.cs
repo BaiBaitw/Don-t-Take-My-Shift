@@ -14,6 +14,17 @@ using UnityEditor;
 /// </summary>
 public class BossManager : MonoBehaviour
 {
+    /// <summary>Which level this Boss belongs to (picks the line set)</summary>
+    public enum Stage { Typist, Illustrator, Composer, Factory, Engineer, Scam }
+
+    /// <summary>One stage's lines (code only, not shown in the Inspector)</summary>
+    class StageLines
+    {
+        public Stage stage;
+        public string[] bossLines;   // BossSpeech (transition). Max 25 characters each
+        public string[] chatLines;   // chatBubble (before work). 2 lines, max 10 characters per line
+    }
+
     public enum MoveSide { Left, Right, Random }
     static readonly MoveSide[] RealSides = { MoveSide.Left, MoveSide.Right };
 
@@ -34,6 +45,10 @@ public class BossManager : MonoBehaviour
         public RandomRange(float min, float max) { this.min = min; this.max = max; }
         public float Get() => Random.Range(Mathf.Min(min, max), Mathf.Max(min, max));
     }
+
+    // --------- Stage ---------
+    [Header("Stage (choose this level's job)")]
+    public Stage stage = Stage.Typist;
 
     // --------- References ---------
     [Header("References")]
@@ -128,30 +143,6 @@ public class BossManager : MonoBehaviour
     public UIEase blackGradientHideEase = UIEase.Linear;
     [Min(0f)] public float blackGradientHideDuration = 0.3f;
 
-    [TextArea(1, 2)]
-    public string[] bossLines = new string[]
-    {
-        "We're cutting jobs. Bye!",
-        "AI is cheaper than you.",
-        "AI never takes vacations.",
-        "AI does your job in 3s.",
-        "Your role goes to AI.",
-        "Today is your last day.",
-        "AI never complains.",
-        "Sorry, we bought GPUs.",
-        "No bonus needed for AI.",
-        "Congrats, you're retired!",
-        "Humans: optimized away.",
-        "AI writes better reports.",
-        "You tried. AI is better.",
-        "Your desk is for servers.",
-        "Hand your work to the AI.",
-        "AI just needs power.",
-        "Thanks. The door's there.",
-        "Don't worry, AI's got it.",
-        "We're going AI-first now.",
-        "Headcount: zero needed.",
-    };
 
     // --------- Chat Bubble ---------
     [Header("Chat Bubble (shown on WalknSpeech / Speech)")]
@@ -163,29 +154,189 @@ public class BossManager : MonoBehaviour
     public ChatHideAnim chatHideAnim = ChatHideAnim.ShrinkAndFade;
     [Min(0f)] public float chatHideDuration = 0.2f;
 
-    [TextArea(2, 2)]
-    public string[] chatLines = new string[]
+    // --------- Line Sets (one per stage, edit here in code) ---------
+    static readonly StageLines[] stageLines = new StageLines[]
     {
-        "Work time!\nHit goals!",
-        "Raises are\ncoming!",
-        "Early bird\ngets worm!",
-        "Go team!\nYou got it",
-        "Big bonus\nthis year!",
-        "Overtime?\nIt's fun!",
-        "We're all\nfamily!",
-        "Dream big,\nwork hard!",
-        "No limits!\nOnly KPIs!",
-        "Promotion\nsoon, OK?",
-        "Push hard!\nWin big!",
-        "Best team\never!",
-        "I believe\nin you!",
-        "Sales up!\nMood up!",
-        "Weekends?\nOptional!",
-        "Teamwork\nwins!",
-        "Let's make\nmoney!",
-        "Hard work\npays off!",
-        "Good vibes\nonly!",
-        "Coffee's\non me!",
+        new StageLines
+        {
+            stage = Stage.Typist,
+            bossLines = new string[]
+            {
+                "AI types faster than you.",
+                "AI never makes typos.",
+                "Your keyboard is retired.",
+                "AI's hands never hurt.",
+                "Voice typing does it now.",
+                "AI fixes typos instantly.",
+                "AI types while you sleep.",
+                "Your WPM can't beat AI.",
+                "One prompt = 100 pages.",
+                "Hand over the keyboard.",
+            },
+            chatLines = new string[]
+            {
+                "Type fast,\nno typos!",
+                "100 WPM\ntoday, OK?",
+                "Fingers\nready? Go!",
+                "Keys up,\nwork on!",
+                "Every word\ncounts!",
+                "Wrists OK?\nNo rest!",
+                "Faster!\nFaster!",
+                "Spellcheck\nis you!",
+                "Deadline\nat noon!",
+                "Type like\nthe wind!",
+            },
+        },
+        new StageLines
+        {
+            stage = Stage.Illustrator,
+            bossLines = new string[]
+            {
+                "AI draws in 3 seconds.",
+                "Prompts beat your pencil.",
+                "AI does 100 styles now.",
+                "Clients prefer AI art.",
+                "Need changes? Ask AI.",
+                "AI hits every deadline.",
+                "Your tablet goes to AI.",
+                "AI fixed the hands. Bye.",
+                "Free art from a prompt.",
+                "AI learned your style.",
+            },
+            chatLines = new string[]
+            {
+                "Draw fast,\nshade it!",
+                "Ten pics\nby lunch!",
+                "Make it\npop more!",
+                "Bigger\nlogo, OK?",
+                "Clients\nwant more!",
+                "Color it\nbrighter!",
+                "Draw it,\nsend it!",
+                "Feel the\nart, go!",
+                "One more\nchange!",
+                "Brushes\nready? Go!",
+            },
+        },
+        new StageLines
+        {
+            stage = Stage.Composer,
+            bossLines = new string[]
+            {
+                "AI writes songs in secs.",
+                "AI composes 24/7.",
+                "Royalty-free AI music.",
+                "AI made the song. Bye.",
+                "No studio needed for AI.",
+                "One click, one new song.",
+                "AI has no writer's block.",
+                "Your piano is for sale.",
+                "AI remixed it already.",
+                "AI drops the beat now.",
+            },
+            chatLines = new string[]
+            {
+                "Hit every\nnote!",
+                "New song\nby noon!",
+                "Catchy,\nnot sad!",
+                "Make it\na hit!",
+                "More bass,\nmore hype!",
+                "Tune up,\nlet's go!",
+                "Ten beats\ntoday!",
+                "Rhythm is\nmoney!",
+                "Feel the\ngroove!",
+                "No off\nkeys, OK?",
+            },
+        },
+        new StageLines
+        {
+            stage = Stage.Factory,
+            bossLines = new string[]
+            {
+                "Robots work 24 hours.",
+                "AI arms never get tired.",
+                "The line runs itself now.",
+                "Robots don't need lunch.",
+                "AI finds every mistake.",
+                "Your station's automated.",
+                "No shifts. Just robots.",
+                "Machines never get lazy.",
+                "Robots don't take breaks.",
+                "Lights off, robots on.",
+            },
+            chatLines = new string[]
+            {
+                "Faster on\nthe line!",
+                "No\nmistakes!",
+                "Work is\ndoubled!",
+                "Hands up,\nlet's go!",
+                "Pack it,\nstack it!",
+                "No breaks\ntoday!",
+                "Speed up\nthe belt!",
+                "Safety?\nLater!",
+                "Time to\nwork hard!",
+                "More boxes\nper hour!",
+            },
+        },
+        new StageLines
+        {
+            stage = Stage.Engineer,
+            bossLines = new string[]
+            {
+                "AI writes the code now.",
+                "AI builds apps faster.",
+                "AI fixes bugs in seconds.",
+                "AI checks its own code.",
+                "AI debugs as you sleep.",
+                "AI finished your code.",
+                "AI refactored everything.",
+                "One prompt, full app.",
+                "AI doesn't need meetings.",
+                "Your laptop goes to AI.",
+            },
+            chatLines = new string[]
+            {
+                "Finish it\ntoday!",
+                "Zero bugs,\nOK?",
+                "Code fast,\ntest never",
+                "Push to\nprod now!",
+                "Merge it,\nmove on!",
+                "Sprint,\nsprint!",
+                "Ten tasks\ntoday!",
+                "Coffee in,\ncode out!",
+                "Fix it\nby noon!",
+                "No more\nmeetings!",
+            },
+        },
+        new StageLines
+        {
+            stage = Stage.Scam,
+            bossLines = new string[]
+            {
+                "AI fakes voices better.",
+                "Deepfakes do calls now.",
+                "AI writes better scams.",
+                "Bots call 1000 a day.",
+                "AI never sounds nervous.",
+                "AI cloned the CEO voice.",
+                "Bots don't need scripts.",
+                "AI scams in 50 languages.",
+                "AI makes the calls now.",
+                "AI lies with a smile.",
+            },
+            chatLines = new string[]
+            {
+                "Dial fast,\nsmile big!",
+                "Sound\nfriendly!",
+                "Call more\npeople!",
+                "New list,\ngo call!",
+                "Be polite,\nbe quick!",
+                "Trust me,\nwe're fine",
+                "Hang up?\nCall back!",
+                "Big win\ntoday!",
+                "Read the\nscript!",
+                "Stay calm,\nkeep going",
+            },
+        },
     };
 
     // --------- Animator Parameters ---------
@@ -458,8 +609,25 @@ public class BossManager : MonoBehaviour
             }
     }
 
+    /// <summary>Line set for the selected stage (falls back to the first set)</summary>
+    StageLines CurrentLines
+    {
+        get
+        {
+            if (stageLines == null || stageLines.Length == 0) return null;
+            foreach (var set in stageLines)
+                if (set != null && set.stage == stage) return set;
+            Debug.LogWarning("[BossManager] No line set for stage " + stage + ", using the first one");
+            return stageLines[0];
+        }
+    }
+
+    string[] CurrentBossLines => CurrentLines != null ? CurrentLines.bossLines : null;
+    string[] CurrentChatLines => CurrentLines != null ? CurrentLines.chatLines : null;
+
     string PickChatLine()
     {
+        string[] chatLines = CurrentChatLines;
         if (chatLines == null || chatLines.Length == 0) return "";
 
         // All lines used in this appearance -> start over
@@ -588,6 +756,7 @@ public class BossManager : MonoBehaviour
         }
 
         TMP_Text speechText = bossSpeechInstance.GetComponentInChildren<TMP_Text>(true);
+        string[] bossLines = CurrentBossLines;
         if (speechText != null && bossLines != null && bossLines.Length > 0)
             speechText.text = bossLines[Random.Range(0, bossLines.Length)];
         else if (speechText == null)

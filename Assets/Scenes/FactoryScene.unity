@@ -9594,6 +9594,10 @@ PrefabInstance:
     m_TransformParent: {fileID: 581554790}
     m_Modifications:
     - target: {fileID: 1549529745263558273, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
+      propertyPath: stage
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 1549529745263558273, guid: a143d59855f90174f93c9d5c1c9649ae, type: 3}
       propertyPath: gameManager
       value: 
       objectReference: {fileID: 2104768297}

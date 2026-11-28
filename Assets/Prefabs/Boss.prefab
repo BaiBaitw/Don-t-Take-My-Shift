@@ -392,7 +392,7 @@ MonoBehaviour:
   m_characterSpacing: 0
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
-  m_lineSpacing: 0
+  m_lineSpacing: 21.84
   m_lineSpacingMax: 0
   m_paragraphSpacing: 0
   m_charWidthMaxAdj: 0
@@ -651,6 +651,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a59d302f4118a9c4985f9d08f48c02f3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  stage: 0
   animator: {fileID: 7428421279267803585}
   gameManager: {fileID: 0}
   bossSpeechPrefab: {fileID: 4154840975195906037, guid: a370a8b60eae9df4a8e69ff45a3a10d3, type: 3}
@@ -700,93 +701,11 @@ MonoBehaviour:
   bossSpeechHideDuration: 0.25
   blackGradientHideEase: 0
   blackGradientHideDuration: 0.3
-  bossLines:
-  - We're cutting jobs. Bye!
-  - AI is cheaper than you.
-  - AI never takes vacations.
-  - AI does your job in 3s.
-  - Your role goes to AI.
-  - Today is your last day.
-  - AI never complains.
-  - Sorry, we bought GPUs.
-  - No bonus needed for AI.
-  - Congrats, you're retired!
-  - 'Humans: optimized away.'
-  - AI writes better reports.
-  - You tried. AI is better.
-  - Your desk is for servers.
-  - Hand your work to the AI.
-  - AI just needs power.
-  - Thanks. The door's there.
-  - Don't worry, AI's got it.
-  - We're going AI-first now.
-  - 'Headcount: zero needed.'
   chatShowAnim: 1
   chatShowDuration: 0.5
   chatDisplayTime: 3
   chatHideAnim: 2
   chatHideDuration: 0.2
-  chatLines:
-  - 'Work time!
-
-    Hit goals!'
-  - 'Raises are
-
-    coming!'
-  - 'Early bird
-
-    gets worm!'
-  - 'Go team!
-
-    You got it'
-  - 'Big bonus
-
-    this year!'
-  - 'Overtime?
-
-    It''s fun!'
-  - 'We''re all
-
-    family!'
-  - 'Dream big,
-
-    work hard!'
-  - 'No limits!
-
-    Only KPIs!'
-  - 'Promotion
-
-    soon, OK?'
-  - 'Push hard!
-
-    Win big!'
-  - 'Best team
-
-    ever!'
-  - 'I believe
-
-    in you!'
-  - 'Sales up!
-
-    Mood up!'
-  - 'Weekends?
-
-    Optional!'
-  - 'Teamwork
-
-    wins!'
-  - 'Let''s make
-
-    money!'
-  - 'Hard work
-
-    pays off!'
-  - 'Good vibes
-
-    only!'
-  - 'Coffee''s
-
-    on me!'
 --- !u!114 &5611048132781359004
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -927,7 +846,7 @@ Transform:
   m_GameObject: {fileID: 9134397574836375197}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.05, y: -1.12, z: 12.021082}
+  m_LocalPosition: {x: 0.05, y: -0.92, z: 12.021082}
   m_LocalScale: {x: 7.898937, y: 7.0652046, z: 7.898937}
   m_ConstrainProportionsScale: 0
   m_Children: []
